@@ -16,7 +16,9 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const authHeader = req.headers.get("authorization") ?? "";
+    const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? "";
+
+    // Authenticated user client
     const supabaseUser = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -36,10 +38,10 @@ serve(async (req) => {
 
     if (!roleRow) return json({ error: "Forbidden" }, 403);
 
-    // List pending swish attempts
+    // List pending swish attempts (include order_number for convenience)
     const { data, error } = await supabase
       .from("payment_attempts")
-      .select("id,order_id,reference,amount_cents,currency,status,created_at")
+      .select("id,order_id,reference,amount_cents,currency,status,created_at,orders(order_number,full_name,email)")
       .eq("provider", "swish_manual")
       .in("status", ["pending", "pending_review"])
       .order("created_at", { ascending: false });

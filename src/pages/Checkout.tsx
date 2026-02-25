@@ -60,8 +60,8 @@ type SwishManualResponse = {
   reference: string;
   amount_cents: number;
   currency: string;
-  qr_png_data_url: string; // data:image/png;base64,...
-  swish_deeplink?: string; // optional
+  qr_svg: string; // ✅ SVG markup
+  swish_deeplink?: string;
 };
 
 export default function Checkout() {
@@ -88,6 +88,11 @@ export default function Checkout() {
   // Swish modal
   const [swishOpen, setSwishOpen] = useState(false);
   const [swishData, setSwishData] = useState<SwishManualResponse | null>(null);
+
+  const isMobileDevice = () => {
+    if (typeof window === "undefined") return false;
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -180,7 +185,7 @@ export default function Checkout() {
           quantity: it.quantity,
         })),
         customer_name: address.fullName.trim(),
-        customer_email: address.email.trim(), // ✅ send email
+        customer_email: address.email.trim(),
         customer_phone: address.phone.trim(),
         address: {
           street: address.street.trim(),
@@ -198,17 +203,15 @@ export default function Checkout() {
         },
       };
 
-      // ✅ SWISH (manual fallback)
+      // ✅ SWISH (manual)
       if (paymentMethod === "SWISH") {
         const { data, error } = await supabase.functions.invoke(
-          "create-swish-manual-payment",
-          {
-            body: payload,
-          },
+          "create-swish-checkout",
+          { body: payload },
         );
 
         if (error) throw error;
-        if (!data?.qr_png_data_url || !data?.reference || !data?.swish_number) {
+        if (!data?.qr_svg || !data?.reference || !data?.swish_number) {
           throw new Error("Swish payload missing from server response");
         }
 
@@ -221,9 +224,7 @@ export default function Checkout() {
       // ✅ CARD (Stripe Checkout)
       const { data, error } = await supabase.functions.invoke(
         "create-stripe-checkout",
-        {
-          body: payload,
-        },
+        { body: payload },
       );
 
       if (error) throw error;
@@ -288,10 +289,10 @@ export default function Checkout() {
           {swishData ? (
             <div className="space-y-4">
               <div className="flex justify-center">
-                <img
-                  src={swishData.qr_png_data_url}
-                  alt="Swish QR"
-                  className="w-64 h-64 rounded-md border bg-white"
+                <div
+                  className="w-64 h-64 rounded-md border bg-white p-2"
+                  // SVG markup returned by server
+                  dangerouslySetInnerHTML={{ __html: swishData.qr_svg }}
                 />
               </div>
 
@@ -345,16 +346,16 @@ export default function Checkout() {
                   </Button>
                 </div>
 
-                {swishData.swish_deeplink ? (
-                  <Button asChild className="w-full gap-2">
-                    <a
-                      href={swishData.swish_deeplink}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      Open Swish
-                    </a>
+                {swishData.swish_deeplink && isMobileDevice() ? (
+                  <Button
+                    className="w-full gap-2"
+                    type="button"
+                    onClick={() => {
+                      window.location.href = swishData.swish_deeplink!;
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open Swish
                   </Button>
                 ) : null}
 

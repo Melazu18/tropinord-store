@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 const ALLOWED_ORIGINS = new Set([
   "http://localhost:8081",
   "http://127.0.0.1:8081",
+  "https://tropinord-store.vercel.app",
 ]);
 
 function corsHeaders(origin: string | null) {
@@ -36,7 +37,6 @@ function normalizeLang(input: unknown) {
 }
 
 function randomOrderNumber() {
-  // TN-YYYYMMDD-XXXXXX
   const d = new Date();
   const y = d.getFullYear().toString();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -49,6 +49,7 @@ type Payload = {
   items: { product_id: string; quantity: number }[];
   customer_name: string;
   customer_phone?: string;
+  customer_email?: string;
   address: {
     street: string;
     city: string;
@@ -56,18 +57,12 @@ type Payload = {
     country: string;
   };
   lang?: string;
-
-  // Optional - your UI collects email; pass it if you can
-  customer_email?: string;
-
-  // Optional debug/client totals, server computes truth anyway
   client_totals?: unknown;
 };
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
 
-  // ✅ Preflight (fixes OPTIONS 405)
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders(origin) });
   }
@@ -82,22 +77,29 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const siteUrl = Deno.env.get("SITE_URL") ?? "http://localhost:8081";
 
-    if (!stripeKey)
-      return json(origin, { error: "STRIPE_SECRET_KEY missing" }, 500);
+    if (!stripeKey) return json(origin, { error: "STRIPE_SECRET_KEY missing" }, 500);
     if (!supabaseUrl || !serviceKey)
       return json(origin, { error: "Supabase env vars missing" }, 500);
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-05-28.basil" });
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // ✅ Identify caller (so we can set orders.user_id)
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    let userId: string | null = null;
+
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.slice("Bearer ".length);
+      const { data, error } = await supabase.auth.getUser(token);
+      if (!error) userId = data.user?.id ?? null;
+    }
 
     const payload = (await req.json()) as Payload;
 
-    if (!payload.items?.length) {
-      return json(origin, { error: "No items provided" }, 400);
-    }
-    if (!payload.customer_name?.trim()) {
+    if (!payload.items?.length) return json(origin, { error: "No items provided" }, 400);
+    if (!payload.customer_name?.trim())
       return json(origin, { error: "Missing customer_name" }, 400);
-    }
+
     if (
       !payload.address?.street ||
       !payload.address?.city ||
@@ -107,13 +109,8 @@ serve(async (req) => {
       return json(origin, { error: "Missing address" }, 400);
     }
 
-    // Basic item validation
     for (const it of payload.items) {
-      if (
-        !it.product_id ||
-        !Number.isInteger(it.quantity) ||
-        it.quantity <= 0
-      ) {
+      if (!it.product_id || !Number.isInteger(it.quantity) || it.quantity <= 0) {
         return json(origin, { error: "Invalid items" }, 400);
       }
     }
@@ -128,18 +125,16 @@ serve(async (req) => {
       .select("id,title,price_cents,currency")
       .in("id", ids);
 
-    if (pErr || !products)
-      return json(origin, { error: "Product lookup failed" }, 500);
+    if (pErr || !products) return json(origin, { error: "Product lookup failed" }, 500);
     if (products.length !== ids.length)
       return json(origin, { error: "Some products not found" }, 400);
 
     // Ensure single currency
-    const currencySet = new Set(
-      products.map((p) => (p.currency ?? "SEK").toUpperCase()),
-    );
+    const currencySet = new Set(products.map((p) => (p.currency ?? "SEK").toUpperCase()));
     if (currencySet.size !== 1) {
       return json(origin, { error: "Mixed currencies not supported" }, 400);
     }
+
     const currency = [...currencySet][0].toUpperCase();
     const stripeCurrency = currency.toLowerCase();
 
@@ -156,26 +151,19 @@ serve(async (req) => {
       };
     });
 
-    // Compute totals server-side
-    const subtotal = items.reduce(
-      (sum, it) => sum + it.price_cents * it.quantity,
-      0,
-    );
+    const subtotal = items.reduce((sum, it) => sum + it.price_cents * it.quantity, 0);
     const totals = { subtotal, shipping: 0, tax: 0, total: subtotal };
 
-    // Create local order first
     const order_number = randomOrderNumber();
 
     const { data: order, error: oErr } = await supabase
       .from("orders")
       .insert({
         order_number,
-        // If you want to attach user_id, do it in the Edge Function by verifying JWT.
-        // For now (verify_jwt=false), keep null:
-        user_id: null,
+        user_id: userId, // ✅ FIX
 
         full_name: payload.customer_name,
-        email: payload.customer_email ?? "", // if you require email, enforce it in UI and send it
+        email: payload.customer_email ?? "",
         phone: payload.customer_phone ?? null,
         address: payload.address,
         items,
@@ -189,10 +177,8 @@ serve(async (req) => {
       .select("id,order_number")
       .single();
 
-    if (oErr || !order)
-      return json(origin, { error: "Failed to create order" }, 500);
+    if (oErr || !order) return json(origin, { error: "Failed to create order" }, 500);
 
-    // Stripe line items
     const line_items = items.map((it) => ({
       quantity: it.quantity,
       price_data: {
@@ -202,21 +188,19 @@ serve(async (req) => {
       },
     }));
 
-    // ✅ Success goes to existing receipt page
-    const successUrl = `${checkoutBase}/order-confirmation?order=${encodeURIComponent(order.order_number)}`;
+    const successUrl = `${checkoutBase}/order-confirmation?order=${encodeURIComponent(
+      order.order_number,
+    )}`;
     const cancelUrl = `${checkoutBase}/checkout?canceled=1`;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items,
-
-      // ✅ Makes PayPal show (if enabled + eligible)
-      automatic_payment_methods: { enabled: true },
-
+      ...(payload.customer_email?.trim()
+        ? { customer_email: payload.customer_email.trim() }
+        : {}),
       success_url: successUrl,
       cancel_url: cancelUrl,
-
-      // Helpful for webhook mapping
       metadata: {
         order_id: order.id,
         order_number: order.order_number,
@@ -224,7 +208,6 @@ serve(async (req) => {
       },
     });
 
-    // Save Stripe session id on the order
     await supabase
       .from("orders")
       .update({
@@ -236,7 +219,6 @@ serve(async (req) => {
       })
       .eq("id", order.id);
 
-    // Audit event
     await supabase.from("payment_events").insert({
       order_id: order.id,
       provider: "STRIPE",
@@ -250,11 +232,7 @@ serve(async (req) => {
       },
     });
 
-    return json(
-      origin,
-      { url: session.url, order_number: order.order_number },
-      200,
-    );
+    return json(origin, { url: session.url, order_number: order.order_number }, 200);
   } catch (err: any) {
     console.error(err);
     return json(origin, { error: err?.message ?? "Unknown error" }, 500);

@@ -90,6 +90,16 @@ function LocalizedShell() {
   return <Outlet />;
 }
 
+/**
+ * ✅ Handles Stripe/old backend hitting /checkout/success WITHOUT lang.
+ * Redirects to /:lang/checkout/success using current i18n language.
+ */
+function CheckoutSuccessNoLangRedirect() {
+  const { i18n } = useTranslation();
+  const lang = normalizeSupportedLang(i18n.language);
+  return <Navigate to={`/${lang}/checkout/success`} replace />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -106,6 +116,12 @@ const App = () => (
                 <Routes>
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<RootRedirect />} />
+
+                    {/* ✅ IMPORTANT: Catch non-localized Stripe success route */}
+                    <Route
+                      path="/checkout/success"
+                      element={<CheckoutSuccessNoLangRedirect />}
+                    />
 
                     <Route path="/:lang" element={<LocalizedShell />}>
                       <Route index element={<Home />} />
@@ -127,7 +143,7 @@ const App = () => (
                         }
                       />
 
-                      {/* ✅ Optional fallback success route (not required if Stripe goes to order-confirmation) */}
+                      {/* ✅ Optional fallback success route */}
                       <Route
                         path="checkout/success"
                         element={<CheckoutSuccess />}
