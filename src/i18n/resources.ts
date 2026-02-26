@@ -51,6 +51,11 @@ export const resources = {
       copy: "Copy",
       backToShop: "Back to shop",
       free: "Free",
+      included: "Included",
+      includesFreeTeaBagsTitle: "Includes free tea bags",
+      includesFreeTeaBagsBody:
+        "Every tea order includes a pack of 10 reusable organic tea bags.",
+      teaBagsLabel: "Reusable organic tea bags (10-pack)",
     },
     currencies: {
       SEK: "Swedish krona (SEK)",
@@ -147,6 +152,7 @@ export const resources = {
       decreaseQty: "Decrease quantity",
       increaseQty: "Increase quantity",
       removeItem: "Remove item",
+      continueShopping: "Continue Shopping",
     },
     story: {
       header: {
@@ -417,27 +423,66 @@ export const resources = {
         cta: "Subscribe",
       },
     },
-
     catalog: {
+      // Main catalog page
       title: "Explore products",
       subtitle: "Discover our selection of premium products",
       filterByCategory: "Filter by Category",
       loadFailed: "Failed to load products.",
       showingCount: "Showing {{count}} products",
 
+      // Product details page
+      productDetailsTitle: "Product details",
+      productDetailsSubtitle: "Product details and purchase options.",
+      productDetailsLoadingSubtitle: "Loading product information.",
+      productNotFoundTitle: "Product not found",
+      productNotFoundSubtitle: "This product could not be found.",
+      productNotFoundBody:
+        "The product you're looking for doesn't exist or has been removed.",
+      backToCatalog: "Back to catalog",
+
+      // Stock labels
+      inStockCount: "{{count}} in stock",
+      outOfStock: "Out of stock",
+      comingSoon: "Coming soon",
+
+      // Ritual badges
+      ritualFriendly: "Ritual Friendly",
+      pairsWithHoney: "Pairs with Honey",
+      slowBrew: "Slow Brew",
+
+      // Ritual section
+      ritualTitle: "Complete Your Tea Ritual",
+      ritualSubtitle: "Simple companions that elevate the cup.",
+      ritualPicks: "Ritual Picks",
+      ritualPick: "Ritual Pick",
+      ritualTip: "Tip: Add Wild Forest Honey for a richer ritual cup.",
+
+      // Related products
+      youMayAlsoLike: "You may also like",
+
+      // Bundle pairing notice
+      teaHoneyPairingTitle: "Tea + Honey Ritual Pairing",
+      teaHoneyPairingBody:
+        "Both items are in your cart. Bundle discounts can be enabled in checkout.",
+
+      // Buttons
+      addToCart: "Add to cart",
+      added: "Added",
+      maxInCart: "Max in cart",
+      unavailable: "Unavailable",
+
       // NEW: used by CategoryFilter + ProductSearch + ProductCard
       searchPlaceholder: "Search products...",
       clearSearch: "Clear search",
-      comingSoon: "Coming soon",
       onlyLeft: "Only {{count}} left",
-      outOfStock: "Out of stock",
       productFallbackTitle: "Product",
       categories: {
         all: "All Products",
         tea: "Tea",
         oils: "Oils",
         superfoods: "Superfoods",
-        other: "Other",
+        others: "Others",
       },
     },
   },
@@ -453,6 +498,11 @@ export const resources = {
       copy: "Kopiera",
       backToShop: "Tillbaka till butiken",
       free: "Gratis",
+      included: "Inkluderat",
+      includesFreeTeaBagsTitle: "Inkluderar gratis tepåsar",
+      includesFreeTeaBagsBody:
+        "Varje te-beställning inkluderar ett paket med 10 återanvändbara ekologiska tepåsar.",
+      teaBagsLabel: "Återanvändbara ekologiska tepåsar (10-pack)",
     },
     currencies: {
       SEK: "Svensk krona (SEK)",
@@ -549,6 +599,7 @@ export const resources = {
       decreaseQty: "Minska antal",
       increaseQty: "Öka antal",
       removeItem: "Ta bort",
+      continueShopping: "Fortsätt handla",
     },
     story: {
       header: {
@@ -816,27 +867,58 @@ export const resources = {
         cta: "Prenumerera",
       },
     },
-
     catalog: {
       title: "Utforska produkter",
-      subtitle: "Upptäck vårt urval av premiumprodukter",
+      subtitle: "Upptäck vårt utbud av premiumprodukter",
       filterByCategory: "Filtrera efter kategori",
-      loadFailed: "Kunde inte ladda produkter.",
+      loadFailed: "Misslyckades att ladda produkter.",
       showingCount: "Visar {{count}} produkter",
+
+      productDetailsTitle: "Produktdetaljer",
+      productDetailsSubtitle: "Produktdetaljer och köpalternativ.",
+      productDetailsLoadingSubtitle: "Laddar produktinformation.",
+      productNotFoundTitle: "Produkten hittades inte",
+      productNotFoundSubtitle: "Den här produkten kunde inte hittas.",
+      productNotFoundBody:
+        "Produkten du letar efter finns inte eller har tagits bort.",
+      backToCatalog: "Tillbaka till katalogen",
+
+      inStockCount: "{{count}} i lager",
+      outOfStock: "Slut i lager",
+      comingSoon: "Kommer snart",
+
+      ritualFriendly: "Ritualvänlig",
+      pairsWithHoney: "Passar med honung",
+      slowBrew: "Lång bryggning",
+
+      ritualTitle: "Komplettera din teritual",
+      ritualSubtitle: "Enkla tillbehör som lyfter koppen.",
+      ritualPicks: "Ritualval",
+      ritualPick: "Ritualval",
+      ritualTip: "Tips: Lägg till vild skogshonung för en rikare kopp.",
+
+      youMayAlsoLike: "Du kanske också gillar",
+
+      teaHoneyPairingTitle: "Te + Honung – ritualparning",
+      teaHoneyPairingBody:
+        "Båda produkterna finns i din varukorg. Paket-/rabattlogik kan aktiveras i kassan.",
+
+      addToCart: "Lägg i varukorgen",
+      added: "Tillagd",
+      maxInCart: "Max i varukorgen",
+      unavailable: "Ej tillgänglig",
 
       // NEW: used by CategoryFilter + ProductSearch + ProductCard
       searchPlaceholder: "Sök produkter…",
       clearSearch: "Rensa sökning",
-      comingSoon: "Kommer snart",
       onlyLeft: "Endast {{count}} kvar",
-      outOfStock: "Slut i lager",
       productFallbackTitle: "Produkt",
       categories: {
         all: "Alla produkter",
         tea: "Te",
         oils: "Oljor",
         superfoods: "Superfoods",
-        other: "Övrigt",
+        others: "Övrigt",
       },
     },
   },
@@ -852,6 +934,11 @@ export const resources = {
       copy: "نسخ",
       backToShop: "العودة إلى المتجر",
       free: "مجاني",
+      included: "مُشامل",
+      includesFreeTeaBagsTitle: "يتضمن مساحات شاي قابلة لإعادة الاستخدام",
+      includesFreeTeaBagsBody:
+        "تتضمن كل طلب شاي حزمة من 10 مساحات شاي قابلة لإعادة الاستخدام.",
+      teaBagsLabel: "مساحات شاي قابلة لإعادة الاستخدام (حزمة من 10)",
     },
     currencies: {
       SEK: "كرونة سويدية (SEK)",
@@ -940,6 +1027,7 @@ export const resources = {
       decreaseQty: "تقليل الكمية",
       increaseQty: "زيادة الكمية",
       removeItem: "إزالة",
+      continueShopping: "متابعة التسوق",
     },
     story: {
       header: {
@@ -1196,27 +1284,57 @@ export const resources = {
         cta: "اشترك",
       },
     },
-
     catalog: {
-      title: "استكشف المنتجات",
-      subtitle: "اكتشف مجموعتنا من المنتجات الفاخرة",
+      title: "استكشاف المنتجات",
+      subtitle: "اكتشف مجموعتنا من المنتجات المميزة",
       filterByCategory: "تصفية حسب الفئة",
-      loadFailed: "تعذر تحميل المنتجات.",
+      loadFailed: "فشل في تحميل المنتجات.",
       showingCount: "عرض {{count}} منتج",
+
+      productDetailsTitle: "تفاصيل المنتج",
+      productDetailsSubtitle: "تفاصيل المنتج وخيارات الشراء.",
+      productDetailsLoadingSubtitle: "جارٍ تحميل معلومات المنتج.",
+      productNotFoundTitle: "المنتج غير موجود",
+      productNotFoundSubtitle: "تعذر العثور على هذا المنتج.",
+      productNotFoundBody: "المنتج الذي تبحث عنه غير موجود أو تمت إزالته.",
+      backToCatalog: "العودة إلى الكتالوج",
+
+      inStockCount: "{{count}} متوفر في المخزون",
+      outOfStock: "غير متوفر",
+      comingSoon: "قريباً",
+
+      ritualFriendly: "مناسب للطقوس",
+      pairsWithHoney: "يتناسب مع العسل",
+      slowBrew: "تخمير بطيء",
+
+      ritualTitle: "أكمل طقس الشاي الخاص بك",
+      ritualSubtitle: "إضافات بسيطة تعزز تجربتك.",
+      ritualPicks: "اختيارات الطقوس",
+      ritualPick: "اختيار مميز",
+      ritualTip: "نصيحة: أضف عسل الغابة البري للحصول على كوب أكثر غنى.",
+
+      youMayAlsoLike: "قد يعجبك أيضاً",
+
+      teaHoneyPairingTitle: "مزيج الشاي والعسل",
+      teaHoneyPairingBody:
+        "كلا المنتجين في سلة التسوق. يمكن تفعيل خصومات الباقة عند الدفع.",
+
+      addToCart: "أضف إلى السلة",
+      added: "تمت الإضافة",
+      maxInCart: "الحد الأقصى في السلة",
+      unavailable: "غير متاح",
 
       // NEW: used by CategoryFilter + ProductSearch + ProductCard
       searchPlaceholder: "ابحث عن المنتجات…",
       clearSearch: "مسح البحث",
-      comingSoon: "قريبًا",
       onlyLeft: "متبقي {{count}} فقط",
-      outOfStock: "غير متوفر",
       productFallbackTitle: "منتج",
       categories: {
         all: "كل المنتجات",
         tea: "شاي",
         oils: "زيوت",
         superfoods: "سوبرفود",
-        other: "أخرى",
+        others: "أخرى",
       },
     },
   },
@@ -1232,6 +1350,11 @@ export const resources = {
       copy: "Copier",
       backToShop: "Retour à la boutique",
       free: "Gratuit",
+      included: "Inclus",
+      includesFreeTeaBagsTitle: "Inclut des infuseurs à thé réutilisables",
+      includesFreeTeaBagsBody:
+        "Chaque commande de thé inclut un paquet de 10 infuseurs à thé réutilisables.",
+      teaBagsLabel: "Infuseurs à thé réutilisables (paquet de 10)",
     },
     currencies: {
       SEK: "Couronne suédoise (SEK)",
@@ -1330,6 +1453,7 @@ export const resources = {
       decreaseQty: "Diminuer la quantité",
       increaseQty: "Augmenter la quantité",
       removeItem: "Retirer",
+      continueShopping: "Continuer vos achats",
     },
     story: {
       header: {
@@ -1595,22 +1719,55 @@ export const resources = {
       title: "Explorer les produits",
       subtitle: "Découvrez notre sélection de produits premium",
       filterByCategory: "Filtrer par catégorie",
-      loadFailed: "Impossible de charger les produits.",
+      loadFailed: "Échec du chargement des produits.",
       showingCount: "{{count}} produits affichés",
+
+      productDetailsTitle: "Détails du produit",
+      productDetailsSubtitle: "Détails du produit et options d'achat.",
+      productDetailsLoadingSubtitle: "Chargement des informations du produit.",
+      productNotFoundTitle: "Produit introuvable",
+      productNotFoundSubtitle: "Ce produit est introuvable.",
+      productNotFoundBody:
+        "Le produit que vous recherchez n'existe pas ou a été supprimé.",
+      backToCatalog: "Retour au catalogue",
+
+      inStockCount: "{{count}} en stock",
+      outOfStock: "Rupture de stock",
+      comingSoon: "Bientôt disponible",
+
+      ritualFriendly: "Adapté au rituel",
+      pairsWithHoney: "Se marie avec le miel",
+      slowBrew: "Infusion lente",
+
+      ritualTitle: "Complétez votre rituel du thé",
+      ritualSubtitle: "Des compagnons simples qui subliment votre tasse.",
+      ritualPicks: "Sélection rituelle",
+      ritualPick: "Choix rituel",
+      ritualTip:
+        "Astuce : Ajoutez du miel de forêt sauvage pour une tasse plus riche.",
+
+      youMayAlsoLike: "Vous pourriez aussi aimer",
+
+      teaHoneyPairingTitle: "Association Thé + Miel",
+      teaHoneyPairingBody:
+        "Les deux articles sont dans votre panier. Les remises groupées peuvent être activées au paiement.",
+
+      addToCart: "Ajouter au panier",
+      added: "Ajouté",
+      maxInCart: "Quantité maximale atteinte",
+      unavailable: "Indisponible",
 
       // NEW: used by CategoryFilter + ProductSearch + ProductCard
       searchPlaceholder: "Rechercher des produits…",
       clearSearch: "Effacer la recherche",
-      comingSoon: "Bientôt disponible",
       onlyLeft: "Plus que {{count}}",
-      outOfStock: "Rupture de stock",
       productFallbackTitle: "Produit",
       categories: {
         all: "Tous les produits",
         tea: "Thé",
         oils: "Huiles",
         superfoods: "Superaliments",
-        other: "Autre",
+        others: "Autre",
       },
     },
   },
@@ -1626,6 +1783,11 @@ export const resources = {
       copy: "Kopieren",
       backToShop: "Zurück zum Shop",
       free: "Kostenlos",
+      included: "Inklusive",
+      includesFreeTeaBagsTitle: "Enthält wiederverwendbare Teebeutel",
+      includesFreeTeaBagsBody:
+        "Jede Teebestellung enthält ein Paket mit 10 wiederverwendbaren Teebeuteln.",
+      teaBagsLabel: "Wiederverwendbare Teebeutel (Paket mit 10)",
     },
     currencies: {
       SEK: "Schwedische Krone (SEK)",
@@ -1724,6 +1886,7 @@ export const resources = {
       decreaseQty: "Menge verringern",
       increaseQty: "Menge erhöhen",
       removeItem: "Entfernen",
+      continueShopping: "Einkauf fortsetzen",
     },
     story: {
       header: {
@@ -1990,19 +2153,52 @@ export const resources = {
       loadFailed: "Produkte konnten nicht geladen werden.",
       showingCount: "{{count}} Produkte werden angezeigt",
 
+      productDetailsTitle: "Produktdetails",
+      productDetailsSubtitle: "Produktdetails und Kaufoptionen.",
+      productDetailsLoadingSubtitle: "Produktinformationen werden geladen.",
+      productNotFoundTitle: "Produkt nicht gefunden",
+      productNotFoundSubtitle: "Dieses Produkt konnte nicht gefunden werden.",
+      productNotFoundBody:
+        "Das gesuchte Produkt existiert nicht oder wurde entfernt.",
+      backToCatalog: "Zurück zum Katalog",
+
+      inStockCount: "{{count}} auf Lager",
+      outOfStock: "Nicht auf Lager",
+      comingSoon: "Demnächst verfügbar",
+
+      ritualFriendly: "Ritualgeeignet",
+      pairsWithHoney: "Passt gut zu Honig",
+      slowBrew: "Langsame Ziehzeit",
+
+      ritualTitle: "Vervollständigen Sie Ihr Tee-Ritual",
+      ritualSubtitle: "Einfache Begleiter, die Ihre Tasse veredeln.",
+      ritualPicks: "Ritual-Auswahl",
+      ritualPick: "Ritual-Empfehlung",
+      ritualTip:
+        "Tipp: Fügen Sie Wildwaldhonig hinzu für eine intensivere Tasse.",
+
+      youMayAlsoLike: "Das könnte Ihnen auch gefallen",
+
+      teaHoneyPairingTitle: "Tee + Honig Ritual-Kombination",
+      teaHoneyPairingBody:
+        "Beide Artikel befinden sich in Ihrem Warenkorb. Bundle-Rabatte können im Checkout aktiviert werden.",
+
+      addToCart: "In den Warenkorb",
+      added: "Hinzugefügt",
+      maxInCart: "Maximale Menge im Warenkorb",
+      unavailable: "Nicht verfügbar",
+
       // NEW: used by CategoryFilter + ProductSearch + ProductCard
       searchPlaceholder: "Produkte suchen…",
       clearSearch: "Suche löschen",
-      comingSoon: "Demnächst verfügbar",
       onlyLeft: "Nur noch {{count}} übrig",
-      outOfStock: "Nicht auf Lager",
       productFallbackTitle: "Produkt",
       categories: {
         all: "Alle Produkte",
         tea: "Tee",
         oils: "Öle",
         superfoods: "Superfoods",
-        other: "Sonstiges",
+        others: "Sonstiges",
       },
     },
   },
@@ -2018,6 +2214,12 @@ export const resources = {
       copy: "Nakili",
       backToShop: "Rudi dukani",
       free: "Bure",
+      included: "Imejumuishwa",
+      includesFreeTeaBagsTitle:
+        "Inajumuisha mifuko ya chai inayoweza kutumika tena",
+      includesFreeTeaBagsBody:
+        "Kila agizo la chai linajumuisha pakiti ya mifuko 10 ya chai inayoweza kutumika tena.",
+      teaBagsLabel: "Mifuko ya chai inayoweza kutumika tena (pakiti ya 10)",
     },
     currencies: {
       SEK: "Krona ya Uswidi (SEK)",
@@ -2116,6 +2318,7 @@ export const resources = {
       decreaseQty: "Punguza idadi",
       increaseQty: "Ongeza idadi",
       removeItem: "Ondoa",
+      continueShopping: "Endelea kununua",
     },
     story: {
       header: {
@@ -2379,23 +2582,55 @@ export const resources = {
     catalog: {
       title: "Chunguza bidhaa",
       subtitle: "Gundua uteuzi wetu wa bidhaa bora",
-      filterByCategory: "Chuja kwa kategoria",
+      filterByCategory: "Chuja kwa Kategoria",
       loadFailed: "Imeshindikana kupakia bidhaa.",
       showingCount: "Inaonyesha bidhaa {{count}}",
+
+      productDetailsTitle: "Maelezo ya bidhaa",
+      productDetailsSubtitle: "Maelezo ya bidhaa na chaguo za ununuzi.",
+      productDetailsLoadingSubtitle: "Inapakia maelezo ya bidhaa.",
+      productNotFoundTitle: "Bidhaa haijapatikana",
+      productNotFoundSubtitle: "Bidhaa hii haikupatikana.",
+      productNotFoundBody: "Bidhaa unayotafuta haipo au imeondolewa.",
+      backToCatalog: "Rudi kwenye katalogi",
+
+      inStockCount: "{{count}} zipo dukani",
+      outOfStock: "Imeisha",
+      comingSoon: "Inakuja hivi karibuni",
+
+      ritualFriendly: "Inafaa kwa utaratibu",
+      pairsWithHoney: "Inaendana na asali",
+      slowBrew: "Chemsha taratibu",
+
+      ritualTitle: "Kamilisha utaratibu wako wa chai",
+      ritualSubtitle: "Viongezo rahisi vinavyoboresha kikombe chako.",
+      ritualPicks: "Chaguo za utaratibu",
+      ritualPick: "Chaguo maalum",
+      ritualTip:
+        "Kidokezo: Ongeza asali ya msitu kwa kikombe chenye ladha zaidi.",
+
+      youMayAlsoLike: "Unaweza pia kupenda",
+
+      teaHoneyPairingTitle: "Mchanganyiko wa Chai + Asali",
+      teaHoneyPairingBody:
+        "Bidhaa zote ziko kwenye kikapu chako. Punguzo la kifurushi linaweza kuwezeshwa wakati wa malipo.",
+
+      addToCart: "Ongeza kwenye kikapu",
+      added: "Imeongezwa",
+      maxInCart: "Kikomo kwenye kikapu",
+      unavailable: "Haipatikani",
 
       // NEW: used by CategoryFilter + ProductSearch + ProductCard
       searchPlaceholder: "Tafuta bidhaa…",
       clearSearch: "Futa utafutaji",
-      comingSoon: "Inakuja hivi karibuni",
       onlyLeft: "Zimebaki {{count}} tu",
-      outOfStock: "Imeisha",
       productFallbackTitle: "Bidhaa",
       categories: {
         all: "Bidhaa zote",
         tea: "Chai",
         oils: "Mafuta",
         superfoods: "Superfoods",
-        other: "Nyingine",
+        others: "Nyingine",
       },
     },
   },

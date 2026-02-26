@@ -58,11 +58,6 @@ const categoryColors: Record<string, string> = {
   OTHER: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
-/**
- * Picks localized text from:
- * - string => returned as-is
- * - object => tries obj[lang], then obj[fallbackLang]
- */
 function pickI18n(
   value: unknown,
   lang: string,
@@ -97,7 +92,6 @@ function isTeaCategory(category?: string | null) {
 export default function ProductDetail() {
   const { t } = useTranslation(["catalog", "common"]);
 
-  // ✅ All hooks are declared before any conditional returns
   const navigate = useNavigate();
   const { lang: langParam, slug } = useParams<{ lang: string; slug: string }>();
   const lang = normalizeSupportedLang(langParam);
@@ -105,10 +99,9 @@ export default function ProductDetail() {
   const cart = useCart();
   const { data: product, isLoading, error } = useProduct(slug || "");
 
-  // Category + slug derived safely even when product is undefined
   const currentSlug = (product as any)?.slug ?? slug ?? "";
-  const rawCategory = (product as any)?.category ?? "OTHER";
-  const safeCategory = rawCategory === "COFFEE" ? "OTHER" : rawCategory;
+  const rawCategory = (product as any)?.category ?? "OTHERs";
+  const safeCategory = rawCategory === "COFFEE" ? "OTHERs" : rawCategory;
   const isTea = isTeaCategory(safeCategory);
 
   const explorePath = useMemo(() => getLocalizedPath("explore", lang), [lang]);
@@ -118,7 +111,6 @@ export default function ProductDetail() {
     else navigate(explorePath);
   };
 
-  // Related products (same category) – still safe if category undefined
   const { data: relatedProductsRaw } = useRelatedProducts(
     rawCategory,
     currentSlug,
@@ -126,11 +118,9 @@ export default function ProductDetail() {
 
   const relatedProducts = useMemo(() => {
     const list = (relatedProductsRaw ?? []) as any[];
-    // Never suggest coffee
     return list.filter((p) => (p?.category ?? "") !== "COFFEE");
   }, [relatedProductsRaw]);
 
-  // Ritual cross-sell targets (Tea only)
   const ritualSuggestionSlugs = useMemo(() => {
     return isTea ? ["thick-forest-honey", "organic-reusable-tea-bags"] : [];
   }, [isTea]);
@@ -142,14 +132,12 @@ export default function ProductDetail() {
 
       const { data, error } = await supabase
         .from("products")
-        // keep select("*") so you don't break current UI fields
         .select("*")
         .in("slug", ritualSuggestionSlugs)
         .eq("status", "PUBLISHED");
 
       if (error) throw error;
 
-      // preserve order from ritualSuggestionSlugs
       const map = new Map((data ?? []).map((p: any) => [p.slug, p]));
       return ritualSuggestionSlugs
         .map((s) => map.get(s))
@@ -164,7 +152,6 @@ export default function ProductDetail() {
     );
   }, [ritualSuggestions]);
 
-  // Cart-derived states (safe even if product undefined)
   const teaInCart = useMemo(() => {
     if (!isTea) return false;
     return cart.items.some((it) => it.product.slug === currentSlug);
@@ -176,7 +163,6 @@ export default function ProductDetail() {
 
   const bundleActive = isTea && teaInCart && honeyInCart;
 
-  // Auto-add honey ONCE after tea is added (session + per tea slug)
   const autoAddRanRef = useRef(false);
   useEffect(() => {
     if (!isTea) return;
@@ -185,14 +171,11 @@ export default function ProductDetail() {
     if (honeyInCart) return;
     if (!honey) return;
 
-    // Only once per mount
     if (autoAddRanRef.current) return;
 
-    // Only once per session per tea slug
     const key = `auto_honey_added_for_${currentSlug}`;
     if (sessionStorage.getItem(key) === "1") return;
 
-    // Must be purchasable
     const honeyPrice = Number((honey as any).price_cents ?? 0);
     const honeyInv = Number((honey as any).inventory ?? 0);
     if (honeyPrice <= 0 || honeyInv <= 0) return;
@@ -202,7 +185,6 @@ export default function ProductDetail() {
     cart.addItem(honey as any, 1);
   }, [isTea, currentSlug, teaInCart, honeyInCart, honey, cart]);
 
-  // Ritual badge system (UI labels can be moved to i18n later)
   const ritualBadges = useMemo(() => {
     if (safeCategory === "TEA")
       return ["Ritual Friendly", "Pairs with Honey", "Slow Brew"];
@@ -213,7 +195,6 @@ export default function ProductDetail() {
     return [];
   }, [safeCategory]);
 
-  // ✅ Render-safe localized fields (Supabase i18n JSON -> fallback strings)
   const fallbackTitle =
     (product as any)?.title ??
     (product as any)?.name ??
@@ -247,7 +228,6 @@ export default function ProductDetail() {
       defaultValue: String(safeCategory),
     }) || String(safeCategory);
 
-  // ✅ Now conditional returns (after hooks)
   if (isLoading) {
     return (
       <>
@@ -322,7 +302,6 @@ export default function ProductDetail() {
     );
   }
 
-  // ✅ Actual page render
   return (
     <>
       <Header
@@ -344,7 +323,6 @@ export default function ProductDetail() {
           </button>
 
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-            {/* Image */}
             <div className="w-full max-w-md mx-auto overflow-hidden rounded-xl bg-muted">
               <img
                 src={imageUrl}
@@ -354,7 +332,6 @@ export default function ProductDetail() {
               />
             </div>
 
-            {/* Details */}
             <div className="flex flex-col">
               <Badge
                 variant="secondary"
@@ -366,7 +343,6 @@ export default function ProductDetail() {
                 {categoryLabel}
               </Badge>
 
-              {/* Ritual badges */}
               {ritualBadges.length > 0 ? (
                 <div className="flex flex-wrap gap-2 mb-5">
                   {ritualBadges.map((b) => (
@@ -380,12 +356,10 @@ export default function ProductDetail() {
                 </div>
               ) : null}
 
-              {/* Description (single render) */}
               <p className="whitespace-pre-line text-muted-foreground text-lg mb-6">
                 {description}
               </p>
 
-              {/* Bundle message (visual only; discounts require cart upgrade) */}
               {bundleActive ? (
                 <div className="mb-5 rounded-lg border px-4 py-3">
                   <div className="text-sm font-semibold">
@@ -402,7 +376,6 @@ export default function ProductDetail() {
                 </div>
               ) : null}
 
-              {/* Price + stock */}
               <div className="flex items-center gap-4 mb-6">
                 {isComingSoon ? (
                   <span className="text-2xl font-semibold text-muted-foreground">
@@ -430,7 +403,22 @@ export default function ProductDetail() {
                 ) : null}
               </div>
 
-              {/* Add to cart */}
+              {isTea ? (
+                <div className="mb-4 rounded-lg border px-4 py-3">
+                  <div className="text-sm font-semibold">
+                    {t("common:includesFreeTeaBagsTitle", {
+                      defaultValue: "Includes free tea bags",
+                    })}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {t("common:includesFreeTeaBagsBody", {
+                      defaultValue:
+                        "Every tea order includes a pack of 10 reusable organic tea bags.",
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="mt-auto">
                 <AddToCartButton
                   product={product as any}
@@ -444,7 +432,6 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          {/* Ritual cross-sell (animated) */}
           {isTea && (ritualSuggestions?.length ?? 0) > 0 ? (
             <motion.section
               className="mt-14"
@@ -496,7 +483,6 @@ export default function ProductDetail() {
             </motion.section>
           ) : null}
 
-          {/* Related products */}
           {relatedProducts.length > 0 ? (
             <section className="mt-14">
               <h2 className="text-xl font-semibold mb-5">

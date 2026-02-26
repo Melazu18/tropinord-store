@@ -3,8 +3,14 @@
  * Includes promo display + "Bundle applied" badge + "Save X" pill.
  *
  * ✅ i18n: all UI strings moved to translations (ns: common, cart)
+ *
+ * ✅ FIX: If user is not authenticated, redirect them to Login with
+ * ?redirect=<localized checkout path> instead of sending them to homepage.
+ *
+ * ✅ UX: Continue shopping goes to Product Catalog (explore)
+ * ✅ NEW: If cart contains TEA, show “Includes free tea bags” notice
  */
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   Sheet,
   SheetContent,
@@ -21,6 +27,7 @@ import {
   normalizeSupportedLang,
 } from "@/utils/getLocalizedPath";
 import { useTranslation } from "react-i18next";
+import { supabase } from "@/integrations/supabase/client";
 
 const localeMap: Record<string, string> = {
   sv: "sv-SE",
@@ -41,6 +48,7 @@ const formatPrice = (cents: number, currency: string, lang: string) => {
 
 export function CartDrawer() {
   const { t } = useTranslation(["common", "cart"]);
+  const navigate = useNavigate();
 
   const {
     items,
@@ -60,11 +68,38 @@ export function CartDrawer() {
 
   const currency = items[0]?.product.currency || "SEK";
   const checkoutPath = getLocalizedPath("checkout", lang);
+  const explorePath = getLocalizedPath("explore", lang);
+
+  // Login page uses ?redirect=...
+  const loginPath =
+    (() => {
+      try {
+        return getLocalizedPath("login", lang);
+      } catch {
+        return `/${lang}/login`;
+      }
+    })() + `?redirect=${encodeURIComponent(checkoutPath)}`;
 
   const teaHoneyPromo = appliedPromotions?.find(
     (p) => p.code === "TEA_HONEY_10",
   );
   const showBundle = discountTotal > 0 && !!teaHoneyPromo;
+
+  const hasTeaInCart = items.some(
+    (it) => String(it.product.category ?? "").toUpperCase() === "TEA",
+  );
+
+  const handleProceedToCheckout = async () => {
+    closeCart();
+
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      navigate(checkoutPath);
+      return;
+    }
+
+    navigate(loginPath);
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && closeCart()}>
@@ -101,6 +136,11 @@ export function CartDrawer() {
                 defaultValue: "Add some products to get started",
               })}
             </p>
+            <Button asChild className="mt-6">
+              <Link to={explorePath} onClick={closeCart}>
+                {t("cart:continueShopping", { defaultValue: "Continue Shopping" })}
+              </Link>
+            </Button>
           </div>
         ) : (
           <>
@@ -186,8 +226,23 @@ export function CartDrawer() {
               })}
             </div>
 
+            {hasTeaInCart ? (
+              <div className="rounded-lg border px-4 py-3 text-sm mb-3">
+                <div className="font-semibold">
+                  {t("common:includesFreeTeaBagsTitle", {
+                    defaultValue: "Includes free tea bags",
+                  })}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {t("common:includesFreeTeaBagsBody", {
+                    defaultValue:
+                      "Every tea order includes a pack of 10 reusable organic tea bags.",
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             <div className="border-t pt-4 space-y-4">
-              {/* Subtotal */}
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
                   {t("cart:subtotal", { defaultValue: "Subtotal" })}
@@ -197,7 +252,6 @@ export function CartDrawer() {
                 </span>
               </div>
 
-              {/* Promotions + Save pill */}
               {discountTotal > 0 ? (
                 <div className="space-y-2">
                   {appliedPromotions.map((p) => (
@@ -229,22 +283,31 @@ export function CartDrawer() {
 
               <Separator />
 
-              {/* Total */}
               <div className="flex justify-between text-base font-semibold">
                 <span>{t("cart:total", { defaultValue: "Total" })}</span>
                 <span>{formatPrice(totalPrice, currency, lang)}</span>
               </div>
 
-              <Button asChild className="w-full" size="lg">
-                <Link to={checkoutPath} onClick={closeCart}>
-                  {t("cart:proceedToCheckout", {
-                    defaultValue: "Proceed to Checkout",
-                  })}
-                </Link>
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleProceedToCheckout}
+              >
+                {t("cart:proceedToCheckout", {
+                  defaultValue: "Proceed to Checkout",
+                })}
               </Button>
 
               <Button variant="outline" className="w-full" onClick={clearCart}>
                 {t("cart:clearCart", { defaultValue: "Clear Cart" })}
+              </Button>
+
+              <Button asChild variant="ghost" className="w-full">
+                <Link to={explorePath} onClick={closeCart}>
+                  {t("cart:continueShopping", {
+                    defaultValue: "Continue shopping",
+                  })}
+                </Link>
               </Button>
             </div>
           </>

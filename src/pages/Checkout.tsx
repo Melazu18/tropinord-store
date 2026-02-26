@@ -25,7 +25,10 @@ import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { getProductImageUrl } from "@/utils/storage";
-import { normalizeSupportedLang } from "@/utils/getLocalizedPath";
+import {
+  getLocalizedPath,
+  normalizeSupportedLang,
+} from "@/utils/getLocalizedPath";
 import {
   Dialog,
   DialogContent,
@@ -65,7 +68,6 @@ type SwishManualResponse = {
 };
 
 export default function Checkout() {
-  // ✅ Keep using multiple namespaces, but reference them with nsSeparator ":"
   const { t } = useTranslation(["checkout", "errors", "common"]);
   const { items, subtotalPrice, discountTotal, appliedPromotions, totalPrice } =
     useCart();
@@ -74,6 +76,8 @@ export default function Checkout() {
 
   const { lang: langParam } = useParams<{ lang: string }>();
   const lang = normalizeSupportedLang(langParam);
+
+  const explorePath = getLocalizedPath("explore", lang);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CARD");
@@ -84,10 +88,9 @@ export default function Checkout() {
     street: "",
     city: "",
     postalCode: "",
-    country: "Sweden", // keep default as-is (not translated)
+    country: "Sweden",
   });
 
-  // Swish modal
   const [swishOpen, setSwishOpen] = useState(false);
   const [swishData, setSwishData] = useState<SwishManualResponse | null>(null);
 
@@ -130,7 +133,6 @@ export default function Checkout() {
     const postalCode = address.postalCode.trim();
     const country = address.country.trim();
 
-    // ✅ Translate via errors namespace
     if (!fullName) return t("errors:fullNameRequired");
     if (!email) return t("errors:emailRequired");
     if (!/^\S+@\S+\.\S+$/.test(email)) return t("errors:emailInvalid");
@@ -208,7 +210,6 @@ export default function Checkout() {
         },
       };
 
-      // ✅ SWISH (manual) — keep logic intact
       if (paymentMethod === "SWISH") {
         const { data, error } = await supabase.functions.invoke(
           "create-swish-checkout",
@@ -227,7 +228,6 @@ export default function Checkout() {
         return;
       }
 
-      // ✅ CARD (Stripe Checkout) — keep logic intact
       const { data, error } = await supabase.functions.invoke(
         "create-stripe-checkout",
         { body: payload },
@@ -247,7 +247,6 @@ export default function Checkout() {
     }
   };
 
-  // ✅ Empty cart — keep behavior
   if (items.length === 0) {
     return (
       <>
@@ -266,7 +265,7 @@ export default function Checkout() {
                 {t("checkout:emptyBody")}
               </p>
               <Button asChild>
-                <Link to={`/${lang}`}>{t("checkout:continueShopping")}</Link>
+                <Link to={explorePath}>{t("checkout:continueShopping")}</Link>
               </Button>
             </div>
           </PageShell>
@@ -283,7 +282,6 @@ export default function Checkout() {
         showLogo={false}
       />
 
-      {/* Swish modal */}
       <Dialog open={swishOpen} onOpenChange={setSwishOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -415,7 +413,7 @@ export default function Checkout() {
       <main>
         <PageShell>
           <Link
-            to={`/${lang}`}
+            to={explorePath}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />

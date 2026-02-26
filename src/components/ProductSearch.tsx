@@ -85,7 +85,7 @@ export function ProductSearch({
           ? "catalog:categories.oils"
           : c === "SUPERFOOD"
             ? "catalog:categories.superfoods"
-            : c === "OTHER"
+            : c === "OTHERS"
               ? "catalog:categories.other"
               : null;
 

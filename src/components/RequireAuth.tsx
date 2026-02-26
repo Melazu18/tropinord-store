@@ -24,6 +24,13 @@ export default function RequireAuth({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
+  // ✅ Guest Swish exception: allow checkout page access only when ?guest=1 is present
+  // This keeps CARD/PAYPAL protected while letting Swish guest flow continue.
+  const guestAllowed = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("guest") === "1";
+  }, [location.search]);
+
   const redirectTo = useMemo(() => {
     // Supabase expects absolute URLs for redirect targets
     const origin = window.location.origin;
@@ -89,6 +96,7 @@ export default function RequireAuth({
     if (!error) setSent(true);
   };
 
+  // ✅ While checking session, show skeleton (same behavior)
   if (checking) {
     return (
       <div className="container py-10">
@@ -100,8 +108,10 @@ export default function RequireAuth({
     );
   }
 
-  if (authed) return <>{children}</>;
+  // ✅ Allow render if authenticated OR explicitly allowed guest Swish flow
+  if (authed || guestAllowed) return <>{children}</>;
 
+  // Otherwise require login UI
   return (
     <div className="container py-10">
       <div className="max-w-lg mx-auto rounded-xl border bg-background p-6 space-y-4">

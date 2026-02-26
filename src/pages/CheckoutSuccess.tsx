@@ -11,28 +11,33 @@ export default function CheckoutSuccess() {
   const { lang: langParam } = useParams<{ lang: string }>();
   const lang = normalizeSupportedLang(langParam);
 
-  // Stripe sends session_id
+  // Prefer the new params if they exist
+  const order = params.get("order");
+  const token = params.get("token");
+
+  // Legacy param (older Stripe success flow)
   const sessionId = params.get("session_id");
 
   useEffect(() => {
-    if (!sessionId) {
-      navigate(`/${lang}/checkout`, { replace: true });
+    clearCart();
+
+    if (order) {
+      const qs =
+        `order=${encodeURIComponent(order)}` +
+        (token ? `&token=${encodeURIComponent(token)}` : "");
+      navigate(`/${lang}/order-confirmation?${qs}`, { replace: true });
       return;
     }
 
-    // ✅ clear cart immediately on return
-    clearCart();
+    // If we only have session_id, we can't load receipt without a mapping endpoint
+    // so send them back to checkout with a flag.
+    if (sessionId) {
+      navigate(`/${lang}/checkout?success=1`, { replace: true });
+      return;
+    }
 
-    // ✅ If later you map session_id -> order_number via webhook/db,
-    // you can redirect to order-confirmation using order_number.
-    // For now, just keep them on a success page or show a message.
-    navigate(
-      `/${lang}/order-confirmation?session_id=${encodeURIComponent(sessionId)}`,
-      {
-        replace: true,
-      },
-    );
-  }, [sessionId, clearCart, navigate, lang]);
+    navigate(`/${lang}/checkout`, { replace: true });
+  }, [order, token, sessionId, clearCart, navigate, lang]);
 
   return null;
 }

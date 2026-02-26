@@ -1,8 +1,12 @@
 /**
  * Button component that adds a product to the cart and shows feedback.
+ *
+ * ✅ i18n: button labels use translations (ns: catalog)
+ * ✅ No behavior changes: inventory logic + coming-soon logic + click handling unchanged
  */
 import { useMemo, useState } from "react";
 import { ShoppingCart, Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
@@ -15,7 +19,7 @@ interface AddToCartButtonProps {
   fullWidth?: boolean;
 
   disabled?: boolean;
-  disabledText?: string;
+  disabledText?: string; // used only when disabled=true (same as before)
 }
 
 export function AddToCartButton({
@@ -26,10 +30,12 @@ export function AddToCartButton({
   disabled = false,
   disabledText = "Unavailable",
 }: AddToCartButtonProps) {
+  const { t } = useTranslation(["catalog"]);
   const { addItem, items } = useCart();
   const [justAdded, setJustAdded] = useState(false);
 
-  const inventory = typeof product.inventory === "number" ? product.inventory : null;
+  const inventory =
+    typeof product.inventory === "number" ? product.inventory : null;
 
   const cartItem = useMemo(
     () => items.find((it) => it.product.id === product.id),
@@ -46,12 +52,29 @@ export function AddToCartButton({
   const isDisabled = disabled || isComingSoon || isOutOfStock || isMaxQuantity;
 
   const label = useMemo(() => {
-    if (isComingSoon) return "Coming soon";
-    if (isOutOfStock) return "Out of stock";
-    if (isMaxQuantity) return "Max in cart";
-    if (justAdded) return "Added";
-    return "Add to cart";
-  }, [isComingSoon, isOutOfStock, isMaxQuantity, justAdded]);
+    if (isComingSoon)
+      return t("catalog:comingSoon", { defaultValue: "Coming soon" });
+
+    if (isOutOfStock)
+      return t("catalog:outOfStock", { defaultValue: "Out of stock" });
+
+    if (isMaxQuantity)
+      return t("catalog:maxInCart", { defaultValue: "Max in cart" });
+
+    if (justAdded)
+      return t("catalog:addedToCart", { defaultValue: "Added" });
+
+    if (disabled) {
+      // Keep existing API: if caller passes disabledText, show it
+      // (we still provide a translation fallback if they pass the default string)
+      if (disabledText === "Unavailable") {
+        return t("catalog:unavailable", { defaultValue: "Unavailable" });
+      }
+      return disabledText;
+    }
+
+    return t("catalog:addToCart", { defaultValue: "Add to cart" });
+  }, [t, isComingSoon, isOutOfStock, isMaxQuantity, justAdded, disabled, disabledText]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();

@@ -8,24 +8,25 @@ const ALLOWED_ORIGINS = new Set([
   "https://tropinord-store.vercel.app",
 ]);
 
-function corsHeaders(origin: string | null) {
-  const allowedOrigin =
-    origin && ALLOWED_ORIGINS.has(origin) ? origin : "http://localhost:8081";
+function buildCorsHeaders(origin: string | null) {
+  const isAllowed = !!origin && ALLOWED_ORIGINS.has(origin);
+  const allowOrigin = isAllowed ? origin! : "null";
 
   return {
-    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
-    Vary: "Origin",
+    "Vary": "Origin",
   };
 }
 
 function json(origin: string | null, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+    headers: { ...buildCorsHeaders(origin), "Content-Type": "application/json" },
   });
 }
 
@@ -45,6 +46,14 @@ function randomOrderNumber() {
   return `TN-${y}${m}${day}-${rand}`;
 }
 
+async function sha256Hex(input: string) {
+  const data = new TextEncoder().encode(input);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 type Payload = {
   items: { product_id: string; quantity: number }[];
   customer_name: string;
@@ -62,13 +71,23 @@ type Payload = {
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
+  const corsHeaders = buildCorsHeaders(origin);
 
+  // ✅ Preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders(origin) });
+    return new Response("ok", { status: 200, headers: corsHeaders });
+  }
+
+  // ✅ Block unknown origins (prevents accidental “localhost fallback” in prod)
+  if (corsHeaders["Access-Control-Allow-Origin"] === "null") {
+    return new Response(JSON.stringify({ ok: false, error: "Origin not allowed" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   if (req.method !== "POST") {
-    return json(origin, { error: "Method not allowed" }, 405);
+    return json(origin, { ok: false, error: "Method not allowed" }, 405);
   }
 
   try {
@@ -77,15 +96,15 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const siteUrl = Deno.env.get("SITE_URL") ?? "http://localhost:8081";
 
-    if (!stripeKey) return json(origin, { error: "STRIPE_SECRET_KEY missing" }, 500);
-    if (!supabaseUrl || !serviceKey)
-      return json(origin, { error: "Supabase env vars missing" }, 500);
+    if (!stripeKey) return json(origin, { ok: false, error: "STRIPE_SECRET_KEY missing" }, 500);
+    if (!supabaseUrl || !serviceKey) return json(origin, { ok: false, error: "Supabase env vars missing" }, 500);
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-05-28.basil" });
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // ✅ Identify caller (so we can set orders.user_id)
-    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    // ✅ Identify caller (optional): set orders.user_id if signed in
+    const authHeader =
+      req.headers.get("authorization") || req.headers.get("Authorization");
     let userId: string | null = null;
 
     if (authHeader?.startsWith("Bearer ")) {
@@ -96,9 +115,8 @@ serve(async (req) => {
 
     const payload = (await req.json()) as Payload;
 
-    if (!payload.items?.length) return json(origin, { error: "No items provided" }, 400);
-    if (!payload.customer_name?.trim())
-      return json(origin, { error: "Missing customer_name" }, 400);
+    if (!payload.items?.length) return json(origin, { ok: false, error: "No items provided" }, 400);
+    if (!payload.customer_name?.trim()) return json(origin, { ok: false, error: "Missing customer_name" }, 400);
 
     if (
       !payload.address?.street ||
@@ -106,33 +124,47 @@ serve(async (req) => {
       !payload.address?.postal_code ||
       !payload.address?.country
     ) {
-      return json(origin, { error: "Missing address" }, 400);
+      return json(origin, { ok: false, error: "Missing address" }, 400);
     }
 
     for (const it of payload.items) {
       if (!it.product_id || !Number.isInteger(it.quantity) || it.quantity <= 0) {
-        return json(origin, { error: "Invalid items" }, 400);
+        return json(origin, { ok: false, error: "Invalid items" }, 400);
       }
     }
 
     const lang = normalizeLang(payload.lang);
     const checkoutBase = `${siteUrl}/${lang}`;
 
-    // Load products
+    // Load products from DB (server source of truth)
     const ids = payload.items.map((i) => i.product_id);
     const { data: products, error: pErr } = await supabase
       .from("products")
-      .select("id,title,price_cents,currency")
+      .select("id,title,price_cents,currency,status,inventory")
       .in("id", ids);
 
-    if (pErr || !products) return json(origin, { error: "Product lookup failed" }, 500);
-    if (products.length !== ids.length)
-      return json(origin, { error: "Some products not found" }, 400);
+    if (pErr || !products) return json(origin, { ok: false, error: "Product lookup failed" }, 500);
+    if (products.length !== ids.length) return json(origin, { ok: false, error: "Some products not found" }, 400);
 
-    // Ensure single currency
+    // ✅ Enforce purchasable products (prevents 0-price and out-of-stock checkout)
+    for (const p of products) {
+      const inv = Number(p.inventory ?? 0);
+      const price = Number(p.price_cents ?? 0);
+      if (String(p.status).toUpperCase() !== "PUBLISHED") {
+        return json(origin, { ok: false, error: `Product not published: ${p.id}` }, 400);
+      }
+      if (price <= 0) {
+        return json(origin, { ok: false, error: `Product has no price: ${p.id}` }, 400);
+      }
+      if (inv <= 0) {
+        return json(origin, { ok: false, error: `Product out of stock: ${p.id}` }, 400);
+      }
+    }
+
+    // Ensure single currency per checkout
     const currencySet = new Set(products.map((p) => (p.currency ?? "SEK").toUpperCase()));
     if (currencySet.size !== 1) {
-      return json(origin, { error: "Mixed currencies not supported" }, 400);
+      return json(origin, { ok: false, error: "Mixed currencies not supported" }, 400);
     }
 
     const currency = [...currencySet][0].toUpperCase();
@@ -156,11 +188,17 @@ serve(async (req) => {
 
     const order_number = randomOrderNumber();
 
+    // ✅ Guest token for public receipt (Stripe guest flow)
+    const guestToken =
+      crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    const guestTokenHash = await sha256Hex(guestToken);
+    const guestTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(); // 7 days
+
     const { data: order, error: oErr } = await supabase
       .from("orders")
       .insert({
         order_number,
-        user_id: userId, // ✅ FIX
+        user_id: userId,
 
         full_name: payload.customer_name,
         email: payload.customer_email ?? "",
@@ -173,11 +211,15 @@ serve(async (req) => {
         payment_method: "CARD",
         payment_provider: "STRIPE",
         payment_status: "AWAITING_PAYMENT",
+
+        // ✅ used by get-order-public
+        guest_access_token_hash: guestTokenHash,
+        guest_access_token_expires_at: guestTokenExpiresAt,
       })
       .select("id,order_number")
       .single();
 
-    if (oErr || !order) return json(origin, { error: "Failed to create order" }, 500);
+    if (oErr || !order) return json(origin, { ok: false, error: "Failed to create order" }, 500);
 
     const line_items = items.map((it) => ({
       quantity: it.quantity,
@@ -188,9 +230,12 @@ serve(async (req) => {
       },
     }));
 
-    const successUrl = `${checkoutBase}/order-confirmation?order=${encodeURIComponent(
-      order.order_number,
-    )}`;
+    // ✅ CRITICAL: match your OrderConfirmation expectations: ?order=...&token=...
+    const successUrl =
+      `${checkoutBase}/order-confirmation` +
+      `?order=${encodeURIComponent(order.order_number)}` +
+      `&token=${encodeURIComponent(guestToken)}`;
+
     const cancelUrl = `${checkoutBase}/checkout?canceled=1`;
 
     const session = await stripe.checkout.sessions.create({
@@ -232,9 +277,9 @@ serve(async (req) => {
       },
     });
 
-    return json(origin, { url: session.url, order_number: order.order_number }, 200);
+    return json(origin, { ok: true, url: session.url, order_number: order.order_number }, 200);
   } catch (err: any) {
     console.error(err);
-    return json(origin, { error: err?.message ?? "Unknown error" }, 500);
+    return json(origin, { ok: false, error: err?.message ?? "Unknown error" }, 500);
   }
 });

@@ -7,15 +7,16 @@ const ALLOWED_ORIGINS = new Set([
   "https://tropinord-store.vercel.app",
 ]);
 
-function corsHeaders(origin: string | null) {
-  const allowedOrigin =
-    origin && ALLOWED_ORIGINS.has(origin) ? origin : "http://localhost:8081";
+function buildCorsHeaders(origin: string | null) {
+  const isAllowed = !!origin && ALLOWED_ORIGINS.has(origin);
+  const allowOrigin = isAllowed ? origin! : "null";
 
   return {
-    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -24,7 +25,10 @@ function corsHeaders(origin: string | null) {
 function json(origin: string | null, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+    headers: {
+      ...buildCorsHeaders(origin),
+      "Content-Type": "application/json",
+    },
   });
 }
 
@@ -36,15 +40,41 @@ async function sha256Hex(input: string) {
     .join("");
 }
 
+function getBearerToken(req: Request) {
+  const h =
+    req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!h) return null;
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1] : null;
+}
+
+type Body = {
+  order_number?: unknown;
+  token?: unknown;
+};
+
 serve(async (req) => {
   const origin = req.headers.get("origin");
+  const corsHeaders = buildCorsHeaders(origin);
 
+  // ✅ Preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders(origin) });
+    return new Response("ok", { status: 200, headers: corsHeaders });
+  }
+
+  // ✅ Block unknown origins explicitly
+  if (corsHeaders["Access-Control-Allow-Origin"] === "null") {
+    return new Response(
+      JSON.stringify({ ok: false, error: "Origin not allowed" }),
+      {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   if (req.method !== "POST") {
-    return json(origin, { error: "Method not allowed" }, 405);
+    return json(origin, { ok: false, error: "Method not allowed" }, 405);
   }
 
   try {
@@ -53,84 +83,119 @@ serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
     if (!supabaseUrl || !serviceKey || !anonKey) {
-      return json(origin, { error: "Missing Supabase env vars" }, 500);
+      return json(
+        origin,
+        { ok: false, error: "Supabase env vars missing" },
+        500,
+      );
     }
 
-    const { order_number, token } = await req.json();
+    // Admin client bypasses RLS
+    const admin = createClient(supabaseUrl, serviceKey);
+
+    // Only for validating a real user JWT
+    const authClient = createClient(supabaseUrl, anonKey);
+
+    let parsed: Body;
+    try {
+      parsed = (await req.json()) as Body;
+    } catch {
+      return json(origin, { ok: false, error: "Invalid JSON body" }, 400);
+    }
+
+    const order_number = String(parsed.order_number ?? "").trim();
+    const token = parsed.token != null ? String(parsed.token).trim() : "";
 
     if (!order_number) {
-      return json(origin, { error: "Missing order_number" }, 400);
+      return json(origin, { ok: false, error: "Missing order_number" }, 400);
     }
 
-    // Use service role to read the order (RLS bypass on server)
-    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
-
-    const { data: order, error } = await supabaseAdmin
+    const { data: order, error } = await admin
       .from("orders")
       .select(
-        "id,order_number,user_id,full_name,email,phone,address,items,totals,currency,created_at,payment_method,payment_provider,payment_status,paid_at,provider_metadata,guest_access_token_hash,guest_access_token_expires_at",
+        [
+          "order_number",
+          "full_name",
+          "email",
+          "phone",
+          "address",
+          "items",
+          "totals",
+          "currency",
+          "created_at",
+          "payment_method",
+          "payment_provider",
+          "payment_status",
+          "provider_metadata",
+          "paid_at",
+          "user_id",
+          "guest_access_token_hash",
+          "guest_access_token_expires_at",
+        ].join(","),
       )
-      .eq("order_number", String(order_number))
+      .eq("order_number", order_number)
       .maybeSingle();
 
-    if (error) return json(origin, { error: error.message }, 500);
-    if (!order) return json(origin, { error: "Order not found" }, 404);
+    if (error) return json(origin, { ok: false, error: error.message }, 500);
+    if (!order)
+      return json(origin, { ok: false, error: "Order not found" }, 404);
 
-    // --- Auth path (logged in user can view their own order) ---
-    const authHeader =
-      req.headers.get("authorization") || req.headers.get("Authorization");
-    let authedUserId: string | null = null;
-
-    if (authHeader?.startsWith("Bearer ")) {
-      const jwt = authHeader.slice("Bearer ".length);
-      const supabaseUser = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: `Bearer ${jwt}` } },
-      });
-      const { data: userData } = await supabaseUser.auth.getUser();
-      authedUserId = userData?.user?.id ?? null;
-    }
-
-    const isOwner =
-      authedUserId && order.user_id && authedUserId === order.user_id;
-
-    // --- Guest token path ---
-    let guestOk = false;
+    // ✅ 1) Guest token path
     if (token) {
-      const tokenHash = await sha256Hex(String(token));
+      const tokenHash = await sha256Hex(token);
 
       if (
-        order.guest_access_token_hash &&
-        order.guest_access_token_hash === tokenHash
+        !order.guest_access_token_hash ||
+        order.guest_access_token_hash !== tokenHash
       ) {
-        const exp = order.guest_access_token_expires_at
-          ? new Date(order.guest_access_token_expires_at).getTime()
-          : 0;
-
-        if (exp && Date.now() <= exp) {
-          guestOk = true;
-        }
+        return json(origin, { ok: false, error: "Invalid token" }, 403);
       }
+
+      const exp = order.guest_access_token_expires_at
+        ? new Date(order.guest_access_token_expires_at).getTime()
+        : 0;
+
+      if (!exp || Date.now() > exp) {
+        return json(origin, { ok: false, error: "Token expired" }, 403);
+      }
+
+      const {
+        guest_access_token_hash,
+        guest_access_token_expires_at,
+        ...safe
+      } = order as any;
+      return json(origin, { ok: true, order: safe }, 200);
     }
 
-    if (!isOwner && !guestOk) {
-      return json(origin, { error: "Unauthorized" }, 403);
+    // ✅ 2) Signed-in user path
+    const bearer = getBearerToken(req);
+
+    // If bearer missing OR is an sb_* style token, treat as not signed in
+    if (!bearer || bearer.startsWith("sb_")) {
+      return json(
+        origin,
+        { ok: false, error: "Missing token. Please sign in." },
+        401,
+      );
     }
 
-    // Strip secrets before returning
-    const {
-      guest_access_token_hash,
-      guest_access_token_expires_at,
-      user_id,
-      id,
-      ...safe
-    } = order as any;
+    const { data: userRes, error: userErr } =
+      await authClient.auth.getUser(bearer);
+    if (userErr || !userRes?.user) {
+      return json(origin, { ok: false, error: "Unauthorized" }, 401);
+    }
 
-    // Return FLAT object (easy for React: setOrder(data))
-    return json(origin, { ok: true, ...safe }, 200);
+    if (!order.user_id || order.user_id !== userRes.user.id) {
+      return json(origin, { ok: false, error: "Not allowed" }, 403);
+    }
+
+    const { guest_access_token_hash, guest_access_token_expires_at, ...safe } =
+      order as any;
+    return json(origin, { ok: true, order: safe }, 200);
   } catch (e) {
     return json(
       origin,
-      { error: e instanceof Error ? e.message : "Unknown error" },
+      { ok: false, error: e instanceof Error ? e.message : "Unknown error" },
       500,
     );
   }

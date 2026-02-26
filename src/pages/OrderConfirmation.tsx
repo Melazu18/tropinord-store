@@ -56,11 +56,28 @@ function formatMoney(cents: number, currency: string) {
   }).format(cents / 100);
 }
 
+function isOrderLike(x: any): x is Order {
+  return (
+    x &&
+    typeof x === "object" &&
+    typeof x.order_number === "string" &&
+    x.address &&
+    x.items &&
+    x.totals
+  );
+}
+
 export default function OrderConfirmation() {
   const { clearCart } = useCart();
   const [searchParams] = useSearchParams();
+
+  // ✅ Current expected params from Stripe success_url:
+  // /order-confirmation?order=TN-...&token=...
   const orderNumber = searchParams.get("order");
-  const guestToken = searchParams.get("token"); // ✅ guest token for Swish guest flow
+  const guestToken = searchParams.get("token");
+
+  // ✅ Legacy param that used to be sent by CheckoutSuccess.tsx
+  const sessionId = searchParams.get("session_id");
 
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,8 +87,15 @@ export default function OrderConfirmation() {
     let isMounted = true;
 
     async function load() {
+      // If user lands here with session_id only, explain clearly.
       if (!orderNumber) {
-        setError("Missing order reference.");
+        if (sessionId) {
+          setError(
+            "This link contains a Stripe session_id, but the receipt requires an order reference. Please return to the shop and open your order using the order number, or contact support.",
+          );
+        } else {
+          setError("Missing order reference.");
+        }
         setIsLoading(false);
         return;
       }
@@ -95,23 +119,27 @@ export default function OrderConfirmation() {
           return;
         }
 
-        const safeOrder = data.order;
-        if (!safeOrder) {
+        // Support BOTH response shapes:
+        // 1) { ok: true, order: {...} }
+        // 2) { ok: true, ...orderFields }
+        const payload = (data as any).order ?? data;
+
+        if (!isOrderLike(payload)) {
           if (!isMounted) return;
-          setError("Order not found.");
+          setError("Order payload malformed.");
           return;
         }
 
         if (!isMounted) return;
 
         setOrder({
-          ...safeOrder,
-          address: safeOrder.address as unknown as OrderAddress,
-          items: safeOrder.items as unknown as OrderItem[],
-          totals: safeOrder.totals as unknown as OrderTotals,
+          ...payload,
+          address: payload.address as unknown as OrderAddress,
+          items: payload.items as unknown as OrderItem[],
+          totals: payload.totals as unknown as OrderTotals,
         });
 
-        // ✅ Clear cart once we have a valid order
+        // ✅ Clear cart only after valid receipt is loaded
         clearCart();
       } catch (e) {
         console.error(e);
@@ -127,7 +155,7 @@ export default function OrderConfirmation() {
     return () => {
       isMounted = false;
     };
-  }, [orderNumber, guestToken, clearCart]);
+  }, [orderNumber, guestToken, sessionId, clearCart]);
 
   const currency = useMemo(() => {
     return (
