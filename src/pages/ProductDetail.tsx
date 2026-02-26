@@ -1,14 +1,14 @@
 /**
  * Route page: ProductDetail
  *
- * Safe hooks order + ritual cross-sell for TEA:
- * - Animated “Complete Your Tea Ritual” section (Honey + Reusable Organic Tea Bags)
- * - Auto-add honey after tea is added to cart (once per session, if honey not already in cart)
- * - Bundle message when Tea + Honey are in cart (discount requires CartContext upgrade)
- * - Ritual badges UI
+ * ✅ i18n-ready for Supabase multilingual fields:
+ * - Supports product.title_i18n / product.description_i18n (JSON object by lang)
+ * - Falls back to existing product.title / product.name / product.description (string)
+ * - Keeps ALL existing functionality (ritual cross-sell, auto-add honey, related products, etc.)
  */
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, ShoppingBag } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -27,7 +27,10 @@ import { useRelatedProducts } from "@/hooks/useRelatedProducts";
 import { supabase } from "@/integrations/supabase/client";
 import { unescapeNewlines } from "@/utils/text";
 import { getProductImageUrl } from "@/utils/storage";
-import { getLocalizedPath, normalizeSupportedLang } from "@/utils/getLocalizedPath";
+import {
+  getLocalizedPath,
+  normalizeSupportedLang,
+} from "@/utils/getLocalizedPath";
 
 const localeMap: Record<string, string> = {
   sv: "sv-SE",
@@ -41,7 +44,10 @@ const localeMap: Record<string, string> = {
 const formatPrice = (cents: number, currency: string, lang: string) => {
   const amount = cents / 100;
   const locale = localeMap[lang] ?? "en-US";
-  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+  }).format(amount);
 };
 
 const categoryColors: Record<string, string> = {
@@ -51,6 +57,32 @@ const categoryColors: Record<string, string> = {
     "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
   OTHER: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
+
+/**
+ * Picks localized text from:
+ * - string => returned as-is
+ * - object => tries obj[lang], then obj[fallbackLang]
+ */
+function pickI18n(
+  value: unknown,
+  lang: string,
+  fallbackLang = "en",
+  fallbackText = "",
+) {
+  if (!value) return fallbackText;
+  if (typeof value === "string") return value;
+
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const byLang = obj[lang];
+    if (typeof byLang === "string") return byLang;
+
+    const byFallback = obj[fallbackLang];
+    if (typeof byFallback === "string") return byFallback;
+  }
+
+  return fallbackText;
+}
 
 function normalizeDescription(raw?: string | null) {
   if (!raw) return "";
@@ -63,17 +95,18 @@ function isTeaCategory(category?: string | null) {
 }
 
 export default function ProductDetail() {
+  const { t } = useTranslation(["catalog", "common"]);
+
   // ✅ All hooks are declared before any conditional returns
   const navigate = useNavigate();
   const { lang: langParam, slug } = useParams<{ lang: string; slug: string }>();
   const lang = normalizeSupportedLang(langParam);
 
   const cart = useCart();
-
   const { data: product, isLoading, error } = useProduct(slug || "");
 
   // Category + slug derived safely even when product is undefined
-  const currentSlug = (product as any)?.slug ?? (slug ?? "");
+  const currentSlug = (product as any)?.slug ?? slug ?? "";
   const rawCategory = (product as any)?.category ?? "OTHER";
   const safeCategory = rawCategory === "COFFEE" ? "OTHER" : rawCategory;
   const isTea = isTeaCategory(safeCategory);
@@ -86,7 +119,10 @@ export default function ProductDetail() {
   };
 
   // Related products (same category) – still safe if category undefined
-  const { data: relatedProductsRaw } = useRelatedProducts(rawCategory, currentSlug);
+  const { data: relatedProductsRaw } = useRelatedProducts(
+    rawCategory,
+    currentSlug,
+  );
 
   const relatedProducts = useMemo(() => {
     const list = (relatedProductsRaw ?? []) as any[];
@@ -106,6 +142,7 @@ export default function ProductDetail() {
 
       const { data, error } = await supabase
         .from("products")
+        // keep select("*") so you don't break current UI fields
         .select("*")
         .in("slug", ritualSuggestionSlugs)
         .eq("status", "PUBLISHED");
@@ -122,7 +159,9 @@ export default function ProductDetail() {
   });
 
   const honey = useMemo(() => {
-    return (ritualSuggestions ?? []).find((p: any) => p.slug === "thick-forest-honey");
+    return (ritualSuggestions ?? []).find(
+      (p: any) => p.slug === "thick-forest-honey",
+    );
   }, [ritualSuggestions]);
 
   // Cart-derived states (safe even if product undefined)
@@ -163,17 +202,39 @@ export default function ProductDetail() {
     cart.addItem(honey as any, 1);
   }, [isTea, currentSlug, teaInCart, honeyInCart, honey, cart]);
 
-  // Ritual badge system
+  // Ritual badge system (UI labels can be moved to i18n later)
   const ritualBadges = useMemo(() => {
-    if (safeCategory === "TEA") return ["Ritual Friendly", "Pairs with Honey", "Slow Brew"];
-    if (safeCategory === "OIL") return ["Heritage Use", "Multi-Purpose", "Small Batch"];
-    if (safeCategory === "SUPERFOOD") return ["Daily Ritual", "Minimal Processing", "Traditional Ingredient"];
+    if (safeCategory === "TEA")
+      return ["Ritual Friendly", "Pairs with Honey", "Slow Brew"];
+    if (safeCategory === "OIL")
+      return ["Heritage Use", "Multi-Purpose", "Small Batch"];
+    if (safeCategory === "SUPERFOOD")
+      return ["Daily Ritual", "Minimal Processing", "Traditional Ingredient"];
     return [];
   }, [safeCategory]);
 
-  // Render-safe fields
-  const title = (product as any)?.title ?? (product as any)?.name ?? "Product";
-  const description = normalizeDescription((product as any)?.description ?? "");
+  // ✅ Render-safe localized fields (Supabase i18n JSON -> fallback strings)
+  const fallbackTitle =
+    (product as any)?.title ??
+    (product as any)?.name ??
+    t("catalog:productFallbackTitle", { defaultValue: "Product" });
+
+  const title = pickI18n(
+    (product as any)?.title_i18n,
+    lang,
+    "en",
+    fallbackTitle,
+  );
+
+  const rawDescFallback = (product as any)?.description ?? "";
+  const descRaw = pickI18n(
+    (product as any)?.description_i18n,
+    lang,
+    "en",
+    rawDescFallback,
+  );
+  const description = normalizeDescription(descRaw);
+
   const imageUrl = getProductImageUrl((product as any)?.images?.[0]);
 
   const cents = Number((product as any)?.price_cents ?? 0);
@@ -181,11 +242,23 @@ export default function ProductDetail() {
   const inventory = (product as any)?.inventory ?? null;
   const isComingSoon = cents <= 0;
 
+  const categoryLabel =
+    t(`catalog:categories.${String(safeCategory).toLowerCase()}`, {
+      defaultValue: String(safeCategory),
+    }) || String(safeCategory);
+
   // ✅ Now conditional returns (after hooks)
   if (isLoading) {
     return (
       <>
-        <Header title="Product details" subtitle="Loading product information." />
+        <Header
+          title={t("catalog:productDetailsTitle", {
+            defaultValue: "Product details",
+          })}
+          subtitle={t("catalog:productDetailsLoadingSubtitle", {
+            defaultValue: "Loading product information.",
+          })}
+        />
         <main>
           <PageShell>
             <Skeleton className="h-6 w-32 mb-8" />
@@ -208,14 +281,28 @@ export default function ProductDetail() {
   if (error || !product) {
     return (
       <>
-        <Header title="Product details" subtitle="This product could not be found." />
+        <Header
+          title={t("catalog:productDetailsTitle", {
+            defaultValue: "Product details",
+          })}
+          subtitle={t("catalog:productNotFoundSubtitle", {
+            defaultValue: "This product could not be found.",
+          })}
+        />
         <main>
           <PageShell>
             <div className="text-center py-16">
               <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Product not found</h2>
+              <h2 className="text-2xl font-bold mb-2">
+                {t("catalog:productNotFoundTitle", {
+                  defaultValue: "Product not found",
+                })}
+              </h2>
               <p className="text-muted-foreground">
-                The product you&apos;re looking for doesn&apos;t exist or has been removed.
+                {t("catalog:productNotFoundBody", {
+                  defaultValue:
+                    "The product you're looking for doesn't exist or has been removed.",
+                })}
               </p>
 
               <button
@@ -224,7 +311,9 @@ export default function ProductDetail() {
                 className="mt-6 inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to catalog
+                {t("catalog:backToCatalog", {
+                  defaultValue: "Back to catalog",
+                })}
               </button>
             </div>
           </PageShell>
@@ -236,7 +325,12 @@ export default function ProductDetail() {
   // ✅ Actual page render
   return (
     <>
-      <Header title={title} subtitle="Product details and purchase options." />
+      <Header
+        title={title}
+        subtitle={t("catalog:productDetailsSubtitle", {
+          defaultValue: "Product details and purchase options.",
+        })}
+      />
 
       <main>
         <PageShell>
@@ -246,7 +340,7 @@ export default function ProductDetail() {
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to catalog
+            {t("catalog:backToCatalog", { defaultValue: "Back to catalog" })}
           </button>
 
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
@@ -264,9 +358,12 @@ export default function ProductDetail() {
             <div className="flex flex-col">
               <Badge
                 variant="secondary"
-                className={`w-fit mb-3 ${categoryColors[safeCategory] ?? categoryColors.OTHER}`}
+                className={`w-fit mb-3 ${
+                  categoryColors[String(safeCategory).toUpperCase()] ??
+                  categoryColors.OTHER
+                }`}
               >
-                {safeCategory}
+                {categoryLabel}
               </Badge>
 
               {/* Ritual badges */}
@@ -291,9 +388,16 @@ export default function ProductDetail() {
               {/* Bundle message (visual only; discounts require cart upgrade) */}
               {bundleActive ? (
                 <div className="mb-5 rounded-lg border px-4 py-3">
-                  <div className="text-sm font-semibold">Tea + Honey Ritual Pairing</div>
+                  <div className="text-sm font-semibold">
+                    {t("catalog:teaHoneyPairingTitle", {
+                      defaultValue: "Tea + Honey Ritual Pairing",
+                    })}
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    Both items are in your cart. Bundle discounts can be enabled in checkout.
+                    {t("catalog:teaHoneyPairingBody", {
+                      defaultValue:
+                        "Both items are in your cart. Bundle discounts can be enabled in checkout.",
+                    })}
                   </div>
                 </div>
               ) : null}
@@ -301,16 +405,27 @@ export default function ProductDetail() {
               {/* Price + stock */}
               <div className="flex items-center gap-4 mb-6">
                 {isComingSoon ? (
-                  <span className="text-2xl font-semibold text-muted-foreground">Coming soon</span>
+                  <span className="text-2xl font-semibold text-muted-foreground">
+                    {t("catalog:comingSoon", { defaultValue: "Coming soon" })}
+                  </span>
                 ) : (
                   <span className="text-3xl font-bold text-primary">
                     {formatPrice(cents, currency, lang)}
                   </span>
                 )}
 
-                {!isComingSoon && inventory !== null && inventory !== undefined ? (
+                {!isComingSoon &&
+                inventory !== null &&
+                inventory !== undefined ? (
                   <span className="text-sm text-muted-foreground">
-                    {Number(inventory) > 0 ? `${inventory} in stock` : "Out of stock"}
+                    {Number(inventory) > 0
+                      ? t("catalog:inStockCount", {
+                          defaultValue: "{{count}} in stock",
+                          count: Number(inventory),
+                        })
+                      : t("catalog:outOfStock", {
+                          defaultValue: "Out of stock",
+                        })}
                   </span>
                 ) : null}
               </div>
@@ -321,7 +436,9 @@ export default function ProductDetail() {
                   product={product as any}
                   fullWidth
                   disabled={isComingSoon}
-                  disabledText="Coming soon"
+                  disabledText={t("catalog:comingSoon", {
+                    defaultValue: "Coming soon",
+                  })}
                 />
               </div>
             </div>
@@ -338,14 +455,20 @@ export default function ProductDetail() {
             >
               <div className="flex items-center justify-between gap-4 mb-4">
                 <div>
-                  <h2 className="text-xl font-semibold">Complete Your Tea Ritual</h2>
+                  <h2 className="text-xl font-semibold">
+                    {t("catalog:ritualTitle", {
+                      defaultValue: "Complete Your Tea Ritual",
+                    })}
+                  </h2>
                   <p className="text-muted-foreground">
-                    Simple companions that elevate the cup.
+                    {t("catalog:ritualSubtitle", {
+                      defaultValue: "Simple companions that elevate the cup.",
+                    })}
                   </p>
                 </div>
 
                 <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
-                  Ritual Picks
+                  {t("catalog:ritualPicks", { defaultValue: "Ritual Picks" })}
                 </span>
               </div>
 
@@ -354,7 +477,9 @@ export default function ProductDetail() {
                   <div key={p.id ?? p.slug} className="relative">
                     <div className="absolute z-10 top-3 left-3">
                       <span className="px-3 py-1 rounded-full text-xs font-semibold bg-background/90 border backdrop-blur">
-                        Ritual Pick
+                        {t("catalog:ritualPick", {
+                          defaultValue: "Ritual Pick",
+                        })}
                       </span>
                     </div>
                     <ProductCard product={p} />
@@ -363,7 +488,10 @@ export default function ProductDetail() {
               </div>
 
               <div className="mt-4 text-xs text-muted-foreground">
-                Tip: Add Wild Forest Honey for a richer ritual cup.
+                {t("catalog:ritualTip", {
+                  defaultValue:
+                    "Tip: Add Wild Forest Honey for a richer ritual cup.",
+                })}
               </div>
             </motion.section>
           ) : null}
@@ -371,7 +499,11 @@ export default function ProductDetail() {
           {/* Related products */}
           {relatedProducts.length > 0 ? (
             <section className="mt-14">
-              <h2 className="text-xl font-semibold mb-5">You may also like</h2>
+              <h2 className="text-xl font-semibold mb-5">
+                {t("catalog:youMayAlsoLike", {
+                  defaultValue: "You may also like",
+                })}
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {relatedProducts.map((p: any) => (
                   <ProductCard key={p.id ?? p.slug} product={p} />

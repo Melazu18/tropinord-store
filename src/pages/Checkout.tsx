@@ -8,6 +8,7 @@ import {
   Copy,
   ExternalLink,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Header } from "@/components/Header";
 import { PageShell } from "@/components/PageShell";
@@ -25,7 +26,6 @@ import type { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { getProductImageUrl } from "@/utils/storage";
 import { normalizeSupportedLang } from "@/utils/getLocalizedPath";
-
 import {
   Dialog,
   DialogContent,
@@ -60,11 +60,13 @@ type SwishManualResponse = {
   reference: string;
   amount_cents: number;
   currency: string;
-  qr_svg: string; // ✅ SVG markup
+  qr_svg: string;
   swish_deeplink?: string;
 };
 
 export default function Checkout() {
+  // ✅ Keep using multiple namespaces, but reference them with nsSeparator ":"
+  const { t } = useTranslation(["checkout", "errors", "common"]);
   const { items, subtotalPrice, discountTotal, appliedPromotions, totalPrice } =
     useCart();
   const { currency: preferredCurrency } = useCurrency();
@@ -82,7 +84,7 @@ export default function Checkout() {
     street: "",
     city: "",
     postalCode: "",
-    country: "Sweden",
+    country: "Sweden", // keep default as-is (not translated)
   });
 
   // Swish modal
@@ -120,7 +122,7 @@ export default function Checkout() {
     [displayCurrency],
   );
 
-  const validateForm = () => {
+  const validateForm = (): string | null => {
     const fullName = address.fullName.trim();
     const email = address.email.trim();
     const street = address.street.trim();
@@ -128,24 +130,28 @@ export default function Checkout() {
     const postalCode = address.postalCode.trim();
     const country = address.country.trim();
 
-    if (!fullName) return "Full name is required.";
-    if (!email) return "Email is required.";
-    if (!/^\S+@\S+\.\S+$/.test(email)) return "Invalid email address.";
-    if (!street) return "Street address is required.";
-    if (!city) return "City is required.";
-    if (!postalCode) return "Postal code is required.";
-    if (!country) return "Country is required.";
+    // ✅ Translate via errors namespace
+    if (!fullName) return t("errors:fullNameRequired");
+    if (!email) return t("errors:emailRequired");
+    if (!/^\S+@\S+\.\S+$/.test(email)) return t("errors:emailInvalid");
+    if (!street) return t("errors:streetRequired");
+    if (!city) return t("errors:cityRequired");
+    if (!postalCode) return t("errors:postalCodeRequired");
+    if (!country) return t("errors:countryRequired");
     return null;
   };
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast({ title: "Copied", description: `${label} copied to clipboard.` });
+      toast({
+        title: t("checkout:copiedTitle"),
+        description: t("checkout:copiedDescription", { label }),
+      });
     } catch {
       toast({
-        title: "Copy failed",
-        description: "Could not copy to clipboard.",
+        title: t("errors:copyFailedTitle"),
+        description: t("errors:copyFailedDescription"),
         variant: "destructive",
       });
     }
@@ -158,7 +164,7 @@ export default function Checkout() {
     const validationError = validateForm();
     if (validationError) {
       toast({
-        title: "Missing information",
+        title: t("errors:missingInfoTitle"),
         description: validationError,
         variant: "destructive",
       });
@@ -170,9 +176,8 @@ export default function Checkout() {
 
       if (paymentMethod === "SWISH" && !swishAllowed) {
         toast({
-          title: "Swish requires SEK",
-          description:
-            "Swish is only available for SEK orders. Please use SEK currency.",
+          title: t("errors:swishRequiresSekTitle"),
+          description: t("errors:swishRequiresSekDescription"),
           variant: "destructive",
         });
         setIsSubmitting(false);
@@ -203,30 +208,30 @@ export default function Checkout() {
         },
       };
 
-      // ✅ SWISH (manual)
+      // ✅ SWISH (manual) — keep logic intact
       if (paymentMethod === "SWISH") {
         const { data, error } = await supabase.functions.invoke(
           "create-swish-checkout",
           { body: payload },
         );
-
         if (error) throw error;
-        if (!data?.qr_svg || !data?.reference || !data?.swish_number) {
+
+        const sw = data as SwishManualResponse | undefined;
+        if (!sw?.qr_svg || !sw?.reference || !sw?.swish_number) {
           throw new Error("Swish payload missing from server response");
         }
 
-        setSwishData(data as SwishManualResponse);
+        setSwishData(sw);
         setSwishOpen(true);
         setIsSubmitting(false);
         return;
       }
 
-      // ✅ CARD (Stripe Checkout)
+      // ✅ CARD (Stripe Checkout) — keep logic intact
       const { data, error } = await supabase.functions.invoke(
         "create-stripe-checkout",
         { body: payload },
       );
-
       if (error) throw error;
       if (!data?.url) throw new Error("Stripe Checkout URL missing");
 
@@ -234,31 +239,34 @@ export default function Checkout() {
     } catch (err) {
       console.error(err);
       toast({
-        title: "Checkout failed",
-        description: "We couldn't start the payment. Please try again.",
+        title: t("errors:checkoutFailedTitle"),
+        description: t("errors:checkoutFailedDescription"),
         variant: "destructive",
       });
       setIsSubmitting(false);
     }
   };
 
+  // ✅ Empty cart — keep behavior
   if (items.length === 0) {
     return (
       <>
         <Header
-          title="Checkout"
-          subtitle="Complete your order securely."
+          title={t("checkout:headerTitle")}
+          subtitle={t("checkout:headerSubtitle")}
           showLogo={false}
         />
         <main>
           <PageShell>
             <div className="text-center py-16">
-              <h2 className="text-2xl font-bold mb-4">Your cart is empty</h2>
+              <h2 className="text-2xl font-bold mb-4">
+                {t("checkout:emptyTitle")}
+              </h2>
               <p className="text-muted-foreground mb-6">
-                Add some products to your cart before checking out.
+                {t("checkout:emptyBody")}
               </p>
               <Button asChild>
-                <Link to={`/${lang}`}>Continue Shopping</Link>
+                <Link to={`/${lang}`}>{t("checkout:continueShopping")}</Link>
               </Button>
             </div>
           </PageShell>
@@ -270,8 +278,8 @@ export default function Checkout() {
   return (
     <>
       <Header
-        title="Checkout"
-        subtitle="Shipping details, payment method, and secure payment."
+        title={t("checkout:headerTitle")}
+        subtitle={t("checkout:headerSubtitle")}
         showLogo={false}
       />
 
@@ -279,10 +287,9 @@ export default function Checkout() {
       <Dialog open={swishOpen} onOpenChange={setSwishOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Pay with Swish</DialogTitle>
+            <DialogTitle>{t("checkout:swishModalTitle")}</DialogTitle>
             <DialogDescription>
-              Scan the QR code in Swish or use the number + reference. Your
-              order will be confirmed after verification.
+              {t("checkout:swishModalDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -291,7 +298,6 @@ export default function Checkout() {
               <div className="flex justify-center">
                 <div
                   className="w-64 h-64 rounded-md border bg-white p-2"
-                  // SVG markup returned by server
                   dangerouslySetInnerHTML={{ __html: swishData.qr_svg }}
                 />
               </div>
@@ -299,7 +305,9 @@ export default function Checkout() {
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-muted-foreground">Amount</div>
+                    <div className="text-muted-foreground">
+                      {t("checkout:amount")}
+                    </div>
                     <div className="font-semibold">
                       {formatPrice(swishData.amount_cents, swishData.currency)}
                     </div>
@@ -308,7 +316,9 @@ export default function Checkout() {
 
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-muted-foreground">Swish number</div>
+                    <div className="text-muted-foreground">
+                      {t("checkout:swishNumber")}
+                    </div>
                     <div className="font-semibold break-all">
                       {swishData.swish_number}
                     </div>
@@ -317,18 +327,23 @@ export default function Checkout() {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      copyToClipboard(swishData.swish_number, "Swish number")
+                      copyToClipboard(
+                        swishData.swish_number,
+                        t("checkout:swishNumber"),
+                      )
                     }
                     className="gap-2"
                   >
                     <Copy className="h-4 w-4" />
-                    Copy
+                    {t("common:copy")}
                   </Button>
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-muted-foreground">Reference</div>
+                    <div className="text-muted-foreground">
+                      {t("checkout:reference")}
+                    </div>
                     <div className="font-semibold break-all">
                       {swishData.reference}
                     </div>
@@ -337,12 +352,15 @@ export default function Checkout() {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      copyToClipboard(swishData.reference, "Reference")
+                      copyToClipboard(
+                        swishData.reference,
+                        t("checkout:reference"),
+                      )
                     }
                     className="gap-2"
                   >
                     <Copy className="h-4 w-4" />
-                    Copy
+                    {t("common:copy")}
                   </Button>
                 </div>
 
@@ -355,13 +373,12 @@ export default function Checkout() {
                     }}
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Open Swish
+                    {t("checkout:openSwish")}
                   </Button>
                 ) : null}
 
                 <p className="text-xs text-muted-foreground">
-                  After you pay, your order will remain pending until verified.
-                  If you need help, contact support.
+                  {t("checkout:afterPayHint")}
                 </p>
               </div>
 
@@ -371,25 +388,26 @@ export default function Checkout() {
                   className="w-full"
                   onClick={() => setSwishOpen(false)}
                 >
-                  Close
+                  {t("common:close")}
                 </Button>
                 <Button
                   className="w-full"
                   onClick={() => {
                     toast({
-                      title: "Payment pending",
-                      description:
-                        "Thanks! We’ll confirm your Swish payment shortly.",
+                      title: t("checkout:paymentPendingTitle"),
+                      description: t("checkout:paymentPendingDescription"),
                     });
                     setSwishOpen(false);
                   }}
                 >
-                  I have paid
+                  {t("checkout:iHavePaid")}
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">Loading…</div>
+            <div className="text-sm text-muted-foreground">
+              {t("common:loading")}
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -401,7 +419,7 @@ export default function Checkout() {
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to shop
+            {t("common:backToShop")}
           </Link>
 
           <form onSubmit={handleSubmit}>
@@ -409,12 +427,14 @@ export default function Checkout() {
               <div className="lg:col-span-2 space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Contact Information</CardTitle>
+                    <CardTitle>{t("checkout:contactTitle")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="fullName">Full Name *</Label>
+                        <Label htmlFor="fullName">
+                          {t("checkout:fullName")} *
+                        </Label>
                         <Input
                           id="fullName"
                           name="fullName"
@@ -423,8 +443,9 @@ export default function Checkout() {
                           required
                         />
                       </div>
+
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email *</Label>
+                        <Label htmlFor="email">{t("checkout:email")} *</Label>
                         <Input
                           id="email"
                           name="email"
@@ -435,15 +456,18 @@ export default function Checkout() {
                         />
                       </div>
                     </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone (optional)</Label>
+                      <Label htmlFor="phone">
+                        {t("checkout:phoneOptional")}
+                      </Label>
                       <Input
                         id="phone"
                         name="phone"
                         type="tel"
                         value={address.phone}
                         onChange={handleInputChange}
-                        placeholder="+46 70 123 4567"
+                        placeholder={t("checkout:phonePlaceholder")}
                       />
                     </div>
                   </CardContent>
@@ -451,11 +475,13 @@ export default function Checkout() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Shipping Address</CardTitle>
+                    <CardTitle>{t("checkout:shippingTitle")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="street">Street Address *</Label>
+                      <Label htmlFor="street">
+                        {t("checkout:streetAddress")} *
+                      </Label>
                       <Textarea
                         id="street"
                         name="street"
@@ -465,9 +491,10 @@ export default function Checkout() {
                         rows={2}
                       />
                     </div>
+
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="city">City *</Label>
+                        <Label htmlFor="city">{t("checkout:city")} *</Label>
                         <Input
                           id="city"
                           name="city"
@@ -476,8 +503,11 @@ export default function Checkout() {
                           required
                         />
                       </div>
+
                       <div className="space-y-2">
-                        <Label htmlFor="postalCode">Postal Code *</Label>
+                        <Label htmlFor="postalCode">
+                          {t("checkout:postalCode")} *
+                        </Label>
                         <Input
                           id="postalCode"
                           name="postalCode"
@@ -487,8 +517,9 @@ export default function Checkout() {
                         />
                       </div>
                     </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="country">Country *</Label>
+                      <Label htmlFor="country">{t("checkout:country")} *</Label>
                       <Input
                         id="country"
                         name="country"
@@ -502,7 +533,7 @@ export default function Checkout() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Payment Method</CardTitle>
+                    <CardTitle>{t("checkout:paymentTitle")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <RadioGroup
@@ -520,9 +551,11 @@ export default function Checkout() {
                         >
                           <CreditCard className="h-5 w-5 text-muted-foreground" />
                           <div>
-                            <p className="font-medium">Card (Stripe)</p>
+                            <p className="font-medium">
+                              {t("checkout:payCardTitle")}
+                            </p>
                             <p className="text-sm text-muted-foreground">
-                              Secure Stripe Checkout
+                              {t("checkout:payCardBody")}
                             </p>
                           </div>
                         </Label>
@@ -548,13 +581,15 @@ export default function Checkout() {
                         >
                           <Smartphone className="h-5 w-5 text-muted-foreground" />
                           <div>
-                            <p className="font-medium">Swish (manual)</p>
+                            <p className="font-medium">
+                              {t("checkout:paySwishTitle")}
+                            </p>
                             <p className="text-sm text-muted-foreground">
-                              QR + reference (confirmed after verification)
+                              {t("checkout:paySwishBody")}
                             </p>
                             {!swishAllowed ? (
                               <p className="text-xs text-muted-foreground">
-                                Requires SEK currency
+                                {t("checkout:paySwishRequiresSek")}
                               </p>
                             ) : null}
                           </div>
@@ -569,9 +604,11 @@ export default function Checkout() {
                         >
                           <DollarSign className="h-5 w-5 text-muted-foreground" />
                           <div>
-                            <p className="font-medium">PayPal</p>
+                            <p className="font-medium">
+                              {t("checkout:payPaypalTitle")}
+                            </p>
                             <p className="text-sm text-muted-foreground">
-                              Enable via Stripe Checkout (if eligible)
+                              {t("checkout:payPaypalBody")}
                             </p>
                           </div>
                         </Label>
@@ -584,7 +621,7 @@ export default function Checkout() {
               <div>
                 <Card className="sticky top-8">
                   <CardHeader>
-                    <CardTitle>Order Summary</CardTitle>
+                    <CardTitle>{t("checkout:summaryTitle")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {items.map((item) => (
@@ -597,13 +634,12 @@ export default function Checkout() {
                             loading="lazy"
                           />
                         </div>
-
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm truncate">
                             {item.product.title}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Qty: {item.quantity}
+                            {t("checkout:qty")}: {item.quantity}
                           </p>
                           <p className="text-sm font-medium">
                             {formatPrice(
@@ -621,7 +657,9 @@ export default function Checkout() {
 
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="text-muted-foreground">
+                          {t("checkout:subtotal")}
+                        </span>
                         <span>
                           {formatPrice(subtotalPrice, displayCurrency)}
                         </span>
@@ -630,7 +668,7 @@ export default function Checkout() {
                       {discountTotal > 0 ? (
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">
-                            Discounts
+                            {t("checkout:discounts")}
                           </span>
                           <span>
                             -{formatPrice(discountTotal, displayCurrency)}
@@ -639,15 +677,17 @@ export default function Checkout() {
                       ) : null}
 
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Shipping</span>
-                        <span>Free</span>
+                        <span className="text-muted-foreground">
+                          {t("checkout:shipping")}
+                        </span>
+                        <span>{t("common:free")}</span>
                       </div>
                     </div>
 
                     <Separator />
 
                     <div className="flex justify-between font-semibold text-lg">
-                      <span>Total</span>
+                      <span>{t("checkout:total")}</span>
                       <span>{formatPrice(totalPrice, displayCurrency)}</span>
                     </div>
 
@@ -658,16 +698,16 @@ export default function Checkout() {
                       disabled={isSubmitting}
                     >
                       {isSubmitting
-                        ? "Starting…"
+                        ? t("checkout:starting")
                         : paymentMethod === "SWISH"
-                          ? "Show Swish QR"
-                          : "Pay with Stripe"}
+                          ? t("checkout:showSwishQr")
+                          : t("checkout:payWithStripe")}
                     </Button>
 
                     <p className="text-xs text-center text-muted-foreground">
                       {paymentMethod === "SWISH"
-                        ? "You’ll get a QR code and reference for Swish."
-                        : "You’ll be redirected to Stripe’s secure checkout."}
+                        ? t("checkout:swishHint")
+                        : t("checkout:stripeHint")}
                     </p>
                   </CardContent>
                 </Card>

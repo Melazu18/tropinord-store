@@ -9,7 +9,13 @@
 import i18n from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
-import { resources, rtlLanguages, supportedLanguages, type SupportedLanguage } from "./resources";
+import {
+  resources,
+  rtlLanguages,
+  supportedLanguages,
+  type SupportedLanguage,
+  // if you exported NAMESPACES, you can use it instead of the array below
+} from "./resources";
 
 const STORAGE_KEY = "tropinord:lang";
 
@@ -43,6 +49,20 @@ void i18n
   .init({
     resources,
     fallbackLng: "en",
+
+    // ✅ ADD THESE TWO LINES
+    defaultNS: "common",
+    ns: [
+      "common",
+      "nav",
+      "footer",
+      "newsletter",
+      "errors",
+      "checkout",
+      "home",
+      "catalog",
+    ],
+
     interpolation: { escapeValue: false },
     supportedLngs: supportedLanguages.map((l) => l.code),
     detection: {
@@ -63,7 +83,9 @@ const initial = ((): SupportedLanguage => {
     return tzGuess;
   }
 
-  const nav = (navigator.languages?.[0] || navigator.language || "en").split("-")[0];
+  const nav = (navigator.languages?.[0] || navigator.language || "en").split(
+    "-",
+  )[0];
   return (isSupported(nav) ? nav : "en") as SupportedLanguage;
 })();
 

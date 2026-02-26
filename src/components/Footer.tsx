@@ -68,7 +68,7 @@ function SocialIconLink(props: {
 
 export function Footer() {
   const year = new Date().getFullYear();
-  const { t, i18n } = useTranslation();
+  const { t, i18n } = useTranslation(["footer"]);
   const params = useParams<RouteParams>();
   const lang = normalizeSupportedLang(params.lang || i18n.language);
 
@@ -82,10 +82,10 @@ export function Footer() {
           {/* Newsletter (mobile-first) */}
           <div className="order-1 md:order-2 space-y-3 max-w-md">
             <p className="text-sm font-semibold tracking-wide">
-              {t("footer.newsletterTitle", { defaultValue: "Newsletter" })}
+              {t("footer:newsletterTitle", { defaultValue: "Newsletter" })}
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              {t("footer.newsletterBody", {
+              {t("footer:newsletterBody", {
                 defaultValue:
                   "Subscribe for product drops and sourcing updates. Need help? Email support@tropinord.com.",
               })}
@@ -97,7 +97,7 @@ export function Footer() {
             <div className="pt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <ShieldCheck className="h-4 w-4" />
               <span>
-                {t("footer.trustLine", {
+                {t("footer:trustLine", {
                   defaultValue: "Secure checkout • Stripe • Swish (manual)",
                 })}
               </span>
@@ -120,7 +120,7 @@ export function Footer() {
             </Link>
 
             <p className="text-sm text-muted-foreground leading-relaxed max-w-sm">
-              {t("footer.brandLine", {
+              {t("footer:brandLine", {
                 defaultValue:
                   "A botanical house shaped in Sweden, rooted in tropical authenticity.",
               })}
@@ -162,14 +162,14 @@ export function Footer() {
                 className="text-muted-foreground hover:text-foreground transition"
                 to={path("faq")}
               >
-                {t("footer.faq", { defaultValue: "FAQ" })}
+                {t("footer:faq", { defaultValue: "FAQ" })}
               </Link>
 
               <Link
                 className="text-muted-foreground hover:text-foreground transition"
                 to={path("privacy")}
               >
-                {t("footer.privacy", { defaultValue: "Privacy Policy" })}
+                {t("footer:privacy", { defaultValue: "Privacy Policy" })}
               </Link>
             </div>
           </div>
@@ -177,12 +177,17 @@ export function Footer() {
 
         {/* Bottom row */}
         <div className="mt-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted-foreground">
-          <div>© {year} TropiNord. All rights reserved.</div>
+          <div>
+            {t("footer:rightsReserved", {
+              year,
+              defaultValue: `© ${year} TropiNord. All rights reserved.`,
+            })}
+          </div>
 
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline">•</span>
             <span>
-              {t("footer.madeIn", {
+              {t("footer:madeIn", {
                 defaultValue: "Designed in Sweden • Rooted in the Tropics",
               })}
             </span>

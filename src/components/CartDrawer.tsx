@@ -1,15 +1,26 @@
 /**
  * Slide-over cart drawer with item list, totals, and checkout action.
  * Includes promo display + "Bundle applied" badge + "Save X" pill.
+ *
+ * ✅ i18n: all UI strings moved to translations (ns: common, cart)
  */
 import { Link, useParams } from "react-router-dom";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { getProductImageUrl } from "@/utils/storage";
-import { getLocalizedPath, normalizeSupportedLang } from "@/utils/getLocalizedPath";
+import {
+  getLocalizedPath,
+  normalizeSupportedLang,
+} from "@/utils/getLocalizedPath";
+import { useTranslation } from "react-i18next";
 
 const localeMap: Record<string, string> = {
   sv: "sv-SE",
@@ -23,10 +34,14 @@ const localeMap: Record<string, string> = {
 const formatPrice = (cents: number, currency: string, lang: string) => {
   const amount = cents / 100;
   const locale = localeMap[lang] ?? "sv-SE";
-  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
+  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(
+    amount,
+  );
 };
 
 export function CartDrawer() {
+  const { t } = useTranslation(["common", "cart"]);
+
   const {
     items,
     isOpen,
@@ -46,7 +61,9 @@ export function CartDrawer() {
   const currency = items[0]?.product.currency || "SEK";
   const checkoutPath = getLocalizedPath("checkout", lang);
 
-  const teaHoneyPromo = appliedPromotions?.find((p) => p.code === "TEA_HONEY_10");
+  const teaHoneyPromo = appliedPromotions?.find(
+    (p) => p.code === "TEA_HONEY_10",
+  );
   const showBundle = discountTotal > 0 && !!teaHoneyPromo;
 
   return (
@@ -55,17 +72,20 @@ export function CartDrawer() {
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5" />
-            Shopping Cart
+            {t("cart:title", { defaultValue: "Shopping Cart" })}
             {showBundle ? (
               <span className="ml-2 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200">
-                Bundle applied
+                {t("cart:bundleApplied", { defaultValue: "Bundle applied" })}
               </span>
             ) : null}
           </SheetTitle>
 
           {showBundle ? (
             <div className="text-xs text-muted-foreground mt-1">
-              {teaHoneyPromo?.label ?? "Tea + Honey Bundle (10% off honey)"}
+              {teaHoneyPromo?.label ??
+                t("cart:teaHoneyLabel", {
+                  defaultValue: "Tea + Honey Bundle (10% off honey)",
+                })}
             </div>
           ) : null}
         </SheetHeader>
@@ -73,31 +93,45 @@ export function CartDrawer() {
         {items.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <ShoppingBag className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-semibold mb-1">Your cart is empty</h3>
-            <p className="text-sm text-muted-foreground">Add some products to get started</p>
+            <h3 className="text-lg font-semibold mb-1">
+              {t("cart:emptyTitle", { defaultValue: "Your cart is empty" })}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("cart:emptyBody", {
+                defaultValue: "Add some products to get started",
+              })}
+            </p>
           </div>
         ) : (
           <>
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
               {items.map((item) => {
                 const img = getProductImageUrl(item.product.images?.[0]);
+                const title =
+                  (item.product as any).title ??
+                  (item.product as any).name ??
+                  t("cart:productFallbackTitle", { defaultValue: "Product" });
 
                 return (
                   <div key={item.product.id} className="flex gap-4">
                     <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted">
                       <img
                         src={img}
-                        alt={item.product.title}
+                        alt={title}
                         className="h-full w-full object-cover"
                         loading="lazy"
                       />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium truncate">{item.product.title}</h4>
+                      <h4 className="text-sm font-medium truncate">{title}</h4>
 
                       <p className="text-sm text-muted-foreground">
-                        {formatPrice(item.product.price_cents, item.product.currency, lang)}
+                        {formatPrice(
+                          item.product.price_cents,
+                          item.product.currency,
+                          lang,
+                        )}
                       </p>
 
                       <div className="flex items-center gap-2 mt-2">
@@ -105,19 +139,31 @@ export function CartDrawer() {
                           variant="outline"
                           size="icon"
                           className="h-7 w-7"
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          onClick={() =>
+                            updateQuantity(item.product.id, item.quantity - 1)
+                          }
+                          aria-label={t("cart:decreaseQty", {
+                            defaultValue: "Decrease quantity",
+                          })}
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
 
-                        <span className="w-8 text-center text-sm">{item.quantity}</span>
+                        <span className="w-8 text-center text-sm">
+                          {item.quantity}
+                        </span>
 
                         <Button
                           variant="outline"
                           size="icon"
                           className="h-7 w-7"
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          onClick={() =>
+                            updateQuantity(item.product.id, item.quantity + 1)
+                          }
                           disabled={item.quantity >= item.product.inventory}
+                          aria-label={t("cart:increaseQty", {
+                            defaultValue: "Increase quantity",
+                          })}
                         >
                           <Plus className="h-3 w-3" />
                         </Button>
@@ -127,6 +173,9 @@ export function CartDrawer() {
                           size="icon"
                           className="h-7 w-7 ml-auto text-destructive hover:text-destructive"
                           onClick={() => removeItem(item.product.id)}
+                          aria-label={t("cart:removeItem", {
+                            defaultValue: "Remove item",
+                          })}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -140,7 +189,9 @@ export function CartDrawer() {
             <div className="border-t pt-4 space-y-4">
               {/* Subtotal */}
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-muted-foreground">
+                  {t("cart:subtotal", { defaultValue: "Subtotal" })}
+                </span>
                 <span className="font-medium">
                   {formatPrice(subtotalPrice, currency, lang)}
                 </span>
@@ -154,7 +205,8 @@ export function CartDrawer() {
                       <span className="text-muted-foreground flex items-center gap-2">
                         {p.label}
                         <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200">
-                          Save {formatPrice(p.discount_cents, currency, lang)}
+                          {t("cart:save", { defaultValue: "Save" })}{" "}
+                          {formatPrice(p.discount_cents, currency, lang)}
                         </span>
                       </span>
 
@@ -165,7 +217,9 @@ export function CartDrawer() {
                   ))}
 
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Discounts</span>
+                    <span className="text-muted-foreground">
+                      {t("cart:discounts", { defaultValue: "Discounts" })}
+                    </span>
                     <span className="font-medium">
                       -{formatPrice(discountTotal, currency, lang)}
                     </span>
@@ -177,18 +231,20 @@ export function CartDrawer() {
 
               {/* Total */}
               <div className="flex justify-between text-base font-semibold">
-                <span>Total</span>
+                <span>{t("cart:total", { defaultValue: "Total" })}</span>
                 <span>{formatPrice(totalPrice, currency, lang)}</span>
               </div>
 
               <Button asChild className="w-full" size="lg">
                 <Link to={checkoutPath} onClick={closeCart}>
-                  Proceed to Checkout
+                  {t("cart:proceedToCheckout", {
+                    defaultValue: "Proceed to Checkout",
+                  })}
                 </Link>
               </Button>
 
               <Button variant="outline" className="w-full" onClick={clearCart}>
-                Clear Cart
+                {t("cart:clearCart", { defaultValue: "Clear Cart" })}
               </Button>
             </div>
           </>

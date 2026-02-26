@@ -10,9 +10,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
 
 export function NewsletterForm() {
   const { toast } = useToast();
+  const { t } = useTranslation(["newsletter"]);
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,14 +34,20 @@ export function NewsletterForm() {
 
       setEmail("");
       toast({
-        title: "Subscribed",
-        description: "Thanks! You have been added to the newsletter.",
+        title: t("newsletter:subscribedTitle", { defaultValue: "Subscribed" }),
+        description: t("newsletter:subscribedDescription", {
+          defaultValue: "Thanks! You have been added to the newsletter.",
+        }),
       });
     } catch {
       toast({
-        title: "Could not subscribe",
-        description:
-          "Please try again later, or contact admin@tropinord.com.",
+        title: t("newsletter:errorTitle", {
+          defaultValue: "Could not subscribe",
+        }),
+        description: t("newsletter:errorDescription", {
+          defaultValue:
+            "Please try again later, or contact support@tropinord.com.",
+        }),
         variant: "destructive",
       });
     } finally {
@@ -53,11 +61,15 @@ export function NewsletterForm() {
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email address"
+        placeholder={t("newsletter:emailPlaceholder", {
+          defaultValue: "Email address",
+        })}
         required
       />
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Signing up…" : "Subscribe"}
+        {isSubmitting
+          ? t("newsletter:signingUp", { defaultValue: "Signing up…" })
+          : t("newsletter:subscribe", { defaultValue: "Subscribe" })}
       </Button>
     </form>
   );

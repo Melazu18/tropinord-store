@@ -60,7 +60,7 @@ function MenuLinkItem({
 }
 
 export function SiteHeader() {
-  const { t, i18n } = useTranslation();
+  const { t, i18n } = useTranslation(["nav"]);
   const params = useParams();
 
   const lang = normalizeSupportedLang(params.lang || i18n.language);
@@ -80,7 +80,7 @@ export function SiteHeader() {
               >
                 <Menu className="h-4 w-4" />
                 <span className="hidden sm:inline">
-                  {t("nav.menu", { defaultValue: "Menu" })}
+                  {t("nav:menu", { defaultValue: "Menu" })}
                 </span>
                 <ChevronDown className="h-4 w-4 opacity-60" />
               </Button>
@@ -90,52 +90,47 @@ export function SiteHeader() {
               {/* Main nav */}
               <MenuLinkItem
                 to={path("explore")}
-                label={t("nav.catalog", { defaultValue: "Catalog" })}
+                label={t("nav:catalog", { defaultValue: "Catalog" })}
               />
               <MenuLinkItem
                 to={path("about")}
-                label={t("nav.about", { defaultValue: "About" })}
+                label={t("nav:about", { defaultValue: "About" })}
               />
               <MenuLinkItem
                 to={path("story")}
-                label={t("nav.story", { defaultValue: "Our Story" })}
+                label={t("nav:story", { defaultValue: "Our Story" })}
               />
               <MenuLinkItem
                 to={path("orders")}
-                label={t("nav.orders", { defaultValue: "Orders" })}
+                label={t("nav:orders", { defaultValue: "Orders" })}
               />
 
               <DropdownMenuSeparator />
 
               {/* Tools */}
               <DropdownMenuItem asChild>
-                <Link
-                  to={path("converter")}
-                  className="flex items-center gap-2"
-                >
+                <Link to={path("converter")} className="flex items-center gap-2">
                   <Wallet className="h-4 w-4" />
-                  {t("nav.converter", { defaultValue: "Currency converter" })}
+                  {t("nav:converter", { defaultValue: "Currency converter" })}
                 </Link>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
 
-              {/* Keep AccountMenu functionality, but expose it here too.
-                  We keep the original AccountMenu component (it can still be used outside),
-                  but user asked: "all navigations are in a dropdown" — account fits here. */}
+              {/* Account */}
               <div className="px-2 py-2">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
-                  {t("nav.account", { defaultValue: "Account" })}
+                  {t("nav:account", { defaultValue: "Account" })}
                 </div>
                 <AccountMenu />
               </div>
 
               <DropdownMenuSeparator />
 
-              {/* Language stays in menu so header stays clean */}
+              {/* Language */}
               <div className="px-2 py-2">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
-                  {t("nav.language", { defaultValue: "Language" })}
+                  {t("nav:language", { defaultValue: "Language" })}
                 </div>
                 <LanguageSwitcher />
               </div>

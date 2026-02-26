@@ -46,6 +46,7 @@ interface Order {
   totals: OrderTotals;
   created_at: string;
   payment_method: string;
+  currency?: string;
 }
 
 function formatMoney(cents: number, currency: string) {
@@ -59,6 +60,7 @@ export default function OrderConfirmation() {
   const { clearCart } = useCart();
   const [searchParams] = useSearchParams();
   const orderNumber = searchParams.get("order");
+  const guestToken = searchParams.get("token"); // ✅ guest token for Swish guest flow
 
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,32 +77,42 @@ export default function OrderConfirmation() {
       }
 
       try {
-        const { data, error: fetchError } = await supabase
-          .from("orders")
-          .select(
-            "order_number, full_name, email, phone, address, items, totals, created_at, payment_method",
-          )
-          .eq("order_number", orderNumber)
-          .maybeSingle();
+        const { data, error: fnError } = await supabase.functions.invoke(
+          "get-order-public",
+          {
+            body: {
+              order_number: orderNumber,
+              token: guestToken ?? null,
+            },
+          },
+        );
 
-        if (fetchError) throw fetchError;
+        if (fnError) throw fnError;
 
-        if (!data) {
+        if (!data?.ok) {
+          if (!isMounted) return;
+          setError(data?.error ?? "Order not found.");
+          return;
+        }
+
+        const safeOrder = data.order;
+        if (!safeOrder) {
           if (!isMounted) return;
           setError("Order not found.");
-        } else {
-          if (!isMounted) return;
-
-          setOrder({
-            ...data,
-            address: data.address as unknown as OrderAddress,
-            items: data.items as unknown as OrderItem[],
-            totals: data.totals as unknown as OrderTotals,
-          });
-
-          // ✅ Clear cart once we have a valid order
-          clearCart();
+          return;
         }
+
+        if (!isMounted) return;
+
+        setOrder({
+          ...safeOrder,
+          address: safeOrder.address as unknown as OrderAddress,
+          items: safeOrder.items as unknown as OrderItem[],
+          totals: safeOrder.totals as unknown as OrderTotals,
+        });
+
+        // ✅ Clear cart once we have a valid order
+        clearCart();
       } catch (e) {
         console.error(e);
         if (!isMounted) return;
@@ -115,9 +127,14 @@ export default function OrderConfirmation() {
     return () => {
       isMounted = false;
     };
-  }, [orderNumber, clearCart]);
+  }, [orderNumber, guestToken, clearCart]);
 
-  const currency = useMemo(() => order?.items?.[0]?.currency ?? "SEK", [order]);
+  const currency = useMemo(() => {
+    return (
+      order?.items?.[0]?.currency ??
+      (order?.currency ? String(order.currency) : "SEK")
+    );
+  }, [order]);
 
   return (
     <>

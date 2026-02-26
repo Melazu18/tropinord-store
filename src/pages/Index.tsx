@@ -3,6 +3,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { Header } from "@/components/Header";
 import { PageShell } from "@/components/PageShell";
@@ -12,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useProducts } from "@/hooks/useProducts";
 
 const Index = () => {
+  const { t } = useTranslation(["catalog"]);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Read initial state from URL
@@ -61,8 +63,10 @@ const Index = () => {
   return (
     <>
       <Header
-        title="Explore products"
-        subtitle="Discover our selection of premium products"
+        title={t("catalog:title", { defaultValue: "Explore products" })}
+        subtitle={t("catalog:subtitle", {
+          defaultValue: "Discover our selection of premium products",
+        })}
         showLogo={false}
       />
 
@@ -73,7 +77,9 @@ const Index = () => {
             <ProductSearch value={searchQuery} onChange={setSearchQuery} />
 
             <h2 className="text-sm font-medium text-muted-foreground">
-              Filter by Category
+              {t("catalog:filterByCategory", {
+                defaultValue: "Filter by Category",
+              })}
             </h2>
             <CategoryFilter
               selected={selectedCategory}
@@ -83,7 +89,11 @@ const Index = () => {
 
           {error ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">Failed to load products.</p>
+              <p className="text-muted-foreground">
+                {t("catalog:loadFailed", {
+                  defaultValue: "Failed to load products.",
+                })}
+              </p>
             </div>
           ) : (
             <>
@@ -96,7 +106,10 @@ const Index = () => {
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground mb-6">
-                    Showing {filteredProducts.length} products
+                    {t("catalog:showingCount", {
+                      defaultValue: "Showing {{count}} products",
+                      count: filteredProducts.length,
+                    })}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredProducts.map((product: any) => (

@@ -3,9 +3,19 @@ import { Header } from "@/components/Header";
 import { PageShell } from "@/components/PageShell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CURRENCIES, type Currency, useCurrency } from "@/contexts/CurrencyContext";
+import {
+  CURRENCIES,
+  type Currency,
+  useCurrency,
+} from "@/contexts/CurrencyContext";
 
 type RatesResponse = {
   amount: number;
@@ -47,7 +57,8 @@ export default function CurrencyConverter() {
         const data = (await res.json()) as RatesResponse;
         if (!cancelled) setRates(data);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to fetch rates");
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Failed to fetch rates");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -72,7 +83,11 @@ export default function CurrencyConverter() {
 
   return (
     <>
-      <Header title="Currency Converter" subtitle="Indicative FX rates (ECB reference)." showLogo={false} />
+      <Header
+        title="Currency Converter"
+        subtitle="Indicative FX rates (ECB reference)."
+        showLogo={false}
+      />
       <main>
         <PageShell className="space-y-8">
           <Card>
@@ -82,12 +97,20 @@ export default function CurrencyConverter() {
             <CardContent className="grid gap-6 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount</Label>
-                <Input id="amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                <Input
+                  id="amount"
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
               </div>
 
               <div className="space-y-2">
                 <Label>From</Label>
-                <Select value={from} onValueChange={(v) => setFrom(v as Currency)}>
+                <Select
+                  value={from}
+                  onValueChange={(v) => setFrom(v as Currency)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select currency" />
                   </SelectTrigger>
@@ -129,14 +152,23 @@ export default function CurrencyConverter() {
               ) : isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading rates…</p>
               ) : converted === null ? (
-                <p className="text-sm text-muted-foreground">No rate available.</p>
+                <p className="text-sm text-muted-foreground">
+                  No rate available.
+                </p>
               ) : (
                 <div className="space-y-1">
                   <p className="text-2xl font-semibold">
                     {numericAmount.toLocaleString()} {from} ≈{" "}
-                    {converted.toLocaleString(undefined, { maximumFractionDigits: 4 })} {to}
+                    {converted.toLocaleString(undefined, {
+                      maximumFractionDigits: 4,
+                    })}{" "}
+                    {to}
                   </p>
-                  {rates?.date ? <p className="text-xs text-muted-foreground">Rates date: {rates.date}</p> : null}
+                  {rates?.date ? (
+                    <p className="text-xs text-muted-foreground">
+                      Rates date: {rates.date}
+                    </p>
+                  ) : null}
                 </div>
               )}
             </CardContent>

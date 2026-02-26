@@ -2,10 +2,12 @@
  * Catalog product card used in the grid listing.
  */
 import { Link, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Tables } from "@/integrations/supabase/types";
 import { unescapeNewlines } from "@/utils/text";
+import { pickI18n } from "@/utils/pickI18n";
 import {
   getLocalizedPath,
   normalizeSupportedLang,
@@ -28,10 +30,9 @@ const localeMap: Record<string, string> = {
 const formatPrice = (cents: number, currency: string, lang: string) => {
   const amount = cents / 100;
   const locale = localeMap[lang] ?? "en-US";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-  }).format(amount);
+  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(
+    amount,
+  );
 };
 
 const categoryColors: Record<string, string> = {
@@ -44,22 +45,41 @@ const categoryColors: Record<string, string> = {
 
 function normalizeDescription(raw?: string | null) {
   if (!raw) return "";
-  // First apply project helper (if it handles real newlines etc)
   const t = unescapeNewlines(raw);
-  // Then ensure escaped "\n" sequences become actual line breaks
   return t.replace(/\\n/g, "\n");
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const { t } = useTranslation(["catalog", "common"]);
   const { lang: langParam } = useParams<{ lang: string }>();
   const lang = normalizeSupportedLang(langParam);
 
-  const title = (product as any).title ?? (product as any).name ?? "Product";
-  const imageUrl = getProductImageUrl(product.images?.[0]);
-  const category = product.category || "OTHER";
-  const description = normalizeDescription(product.description);
+  const fallbackTitle =
+    (product as any).title ??
+    (product as any).name ??
+    t("catalog:productFallbackTitle", { defaultValue: "Product" });
 
+  const title = pickI18n(
+    (product as any).title_i18n,
+    lang,
+    "en",
+    fallbackTitle,
+  );
+
+  const fallbackDesc = normalizeDescription((product as any).description ?? "");
+  const description = normalizeDescription(
+    pickI18n((product as any).description_i18n, lang, "en", fallbackDesc),
+  );
+
+  const imageUrl = getProductImageUrl(product.images?.[0]);
+
+  const category = String(product.category || "OTHER").toUpperCase();
   const to = getLocalizedPath("product", lang, { slug: product.slug });
+
+  const categoryLabel =
+    t(`catalog:categories.${category.toLowerCase()}`, {
+      defaultValue: category,
+    }) || category;
 
   return (
     <Link to={to}>
@@ -79,7 +99,7 @@ export function ProductCard({ product }: ProductCardProps) {
               variant="secondary"
               className={categoryColors[category] ?? categoryColors.OTHER}
             >
-              {category}
+              {categoryLabel}
             </Badge>
           </div>
 
@@ -99,18 +119,23 @@ export function ProductCard({ product }: ProductCardProps) {
             </span>
           ) : (
             <span className="text-sm font-semibold text-muted-foreground">
-              Coming soon
+              {t("catalog:comingSoon", { defaultValue: "Coming soon" })}
             </span>
           )}
 
           {product.inventory <= 5 && product.inventory > 0 && (
             <span className="text-xs text-orange-600 dark:text-orange-400">
-              Only {product.inventory} left
+              {t("catalog:onlyLeft", {
+                defaultValue: "Only {{count}} left",
+                count: product.inventory,
+              })}
             </span>
           )}
 
           {product.inventory === 0 && (
-            <span className="text-xs text-destructive">Out of stock</span>
+            <span className="text-xs text-destructive">
+              {t("catalog:outOfStock", { defaultValue: "Out of stock" })}
+            </span>
           )}
         </CardFooter>
       </Card>

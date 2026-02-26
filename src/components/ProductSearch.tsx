@@ -8,6 +8,7 @@ import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useProducts } from "@/hooks/useProducts";
+import { useTranslation } from "react-i18next";
 
 type SuggestProduct = {
   id: string | number;
@@ -21,22 +22,15 @@ interface ProductSearchProps {
   value: string;
   onChange: (value: string) => void;
 
-  /**
-   * If true, shows a small dropdown of matching products.
-   * Clicking one navigates to /product/:slug (or /product/:id fallback).
-   */
   enableSuggestions?: boolean;
-
-  /**
-   * Limits the number of suggestions shown.
-   */
   maxSuggestions?: number;
-
-  /**
-   * Optional: if you use localized routes like /:lang/product/:slug
-   * pass "en" | "sv" | "ar" | "fr" | "de" | "sw" etc.
-   */
   lang?: string;
+
+  /** Optional override placeholder text */
+  placeholder?: string;
+
+  /** Optional override sr-only label for the clear button */
+  clearLabel?: string;
 }
 
 export function ProductSearch({
@@ -45,7 +39,10 @@ export function ProductSearch({
   enableSuggestions = false,
   maxSuggestions = 6,
   lang,
+  placeholder,
+  clearLabel,
 }: ProductSearchProps) {
+  const { t } = useTranslation(["catalog", "common"]);
   const [isFocused, setIsFocused] = useState(false);
   const navigate = useNavigate();
 
@@ -71,6 +68,30 @@ export function ProductSearch({
 
   const showDropdown = enableSuggestions && isFocused && suggestions.length > 0;
 
+  const resolvedPlaceholder =
+    placeholder ??
+    t("catalog:searchPlaceholder", { defaultValue: "Search products..." });
+
+  const resolvedClearLabel =
+    clearLabel ?? t("catalog:clearSearch", { defaultValue: "Clear search" });
+
+  const categoryLabel = (category?: string | null) => {
+    const c = (category ?? "").toUpperCase();
+    if (!c) return "";
+    const key =
+      c === "TEA"
+        ? "catalog:categories.tea"
+        : c === "OIL"
+          ? "catalog:categories.oils"
+          : c === "SUPERFOOD"
+            ? "catalog:categories.superfoods"
+            : c === "OTHER"
+              ? "catalog:categories.other"
+              : null;
+
+    return key ? t(key, { defaultValue: category ?? "" }) : (category ?? "");
+  };
+
   return (
     <div className="relative w-full max-w-md">
       <Search
@@ -81,12 +102,11 @@ export function ProductSearch({
 
       <Input
         type="text"
-        placeholder="Search products..."
+        placeholder={resolvedPlaceholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => {
-          // tiny delay so click on dropdown works
           window.setTimeout(() => setIsFocused(false), 120);
         }}
         className="pl-10 pr-10"
@@ -101,7 +121,7 @@ export function ProductSearch({
           onClick={() => onChange("")}
         >
           <X className="h-4 w-4" />
-          <span className="sr-only">Clear search</span>
+          <span className="sr-only">{resolvedClearLabel}</span>
         </Button>
       )}
 
@@ -111,9 +131,6 @@ export function ProductSearch({
             {suggestions.map((p) => {
               const slugOrId = (p.slug && String(p.slug)) || String(p.id);
 
-              // supports both:
-              //  - /product/:slug
-              //  - /:lang/product/:slug (if lang is provided)
               const to = lang
                 ? `/${lang}/product/${encodeURIComponent(slugOrId)}`
                 : `/product/${encodeURIComponent(slugOrId)}`;
@@ -130,7 +147,7 @@ export function ProductSearch({
 
                     {(p.category || p.description) && (
                       <span className="text-xs text-muted-foreground line-clamp-1">
-                        {p.category ? p.category : p.description}
+                        {p.category ? categoryLabel(p.category) : p.description}
                       </span>
                     )}
                   </button>
