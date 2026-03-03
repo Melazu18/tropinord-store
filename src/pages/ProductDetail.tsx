@@ -32,6 +32,11 @@ import {
   normalizeSupportedLang,
 } from "@/utils/getLocalizedPath";
 
+// ✅ Reviews integration (additive only)
+import { useProductReviews } from "@/hooks/useProductReviews";
+import { ReviewSummary } from "@/components/reviews/ReviewSummary";
+import { ReviewsList } from "@/components/reviews/ReviewsList";
+
 const localeMap: Record<string, string> = {
   sv: "sv-SE",
   en: "en-US",
@@ -98,6 +103,16 @@ export default function ProductDetail() {
 
   const cart = useCart();
   const { data: product, isLoading, error } = useProduct(slug || "");
+
+  // ✅ Reviews data (additive only)
+  const productId = product?.id;
+  const { data: reviewData } = useProductReviews(productId, 6);
+  const reviews = reviewData?.reviews ?? [];
+  const totalReviews = reviewData?.totalCount ?? 0;
+  const ratings = useMemo(
+    () => reviews.map((r) => Number(r.rating ?? 0)),
+    [reviews],
+  );
 
   const currentSlug = (product as any)?.slug ?? slug ?? "";
   const rawCategory = (product as any)?.category ?? "OTHERs";
@@ -431,6 +446,39 @@ export default function ProductDetail() {
               </div>
             </div>
           </div>
+
+          {/* ✅ Reviews section (additive only) */}
+          {totalReviews > 0 ? (
+            <section className="mt-12">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold">
+                    {t("catalog:reviewsTitle", {
+                      defaultValue: "Customer reviews",
+                    })}
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {t("catalog:reviewsSubtitle", {
+                      defaultValue: "Ratings and experiences from customers.",
+                    })}
+                  </p>
+                </div>
+
+                <ReviewSummary ratings={ratings} count={totalReviews} />
+              </div>
+
+              <ReviewsList reviews={reviews} />
+
+              {totalReviews > reviews.length ? (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {t("catalog:showingLatestReviews", {
+                    defaultValue: "Showing the latest {{count}} reviews.",
+                    count: reviews.length,
+                  })}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           {isTea && (ritualSuggestions?.length ?? 0) > 0 ? (
             <motion.section

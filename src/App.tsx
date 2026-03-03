@@ -23,6 +23,7 @@ import { ChatbotWidget } from "@/components/ChatbotWidget";
 
 import { supportedLanguages, type SupportedLanguage } from "@/i18n/resources";
 import { normalizeSupportedLang } from "@/utils/getLocalizedPath";
+import Reviews from "@/pages/Reviews";
 
 const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/Login"));
@@ -130,6 +131,7 @@ const App = () => (
 
                     <Route path="/:lang" element={<LocalizedShell />}>
                       <Route index element={<Home />} />
+                      <Route path="reviews" element={<Reviews />} />
 
                       {/* Auth routes */}
                       <Route path="login" element={<Login />} />

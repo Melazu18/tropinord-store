@@ -9,6 +9,11 @@ import {
 import { API_BASE } from "@/utils/api";
 import { ProductSearch } from "@/components/ProductSearch";
 
+// ✅ Reviews integration (additive only)
+import { useLatestApprovedReviews } from "@/hooks/useLatestApprovedReviews";
+import { useApprovedReviewStats } from "@/hooks/useApprovedReviewStats";
+import { ReviewSummary } from "@/components/reviews/ReviewSummary";
+
 type RouteParams = {
   lang?: string;
 };
@@ -25,6 +30,12 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ✅ Latest reviews for cards (unchanged behavior)
+  const { data: latestReviews = [] } = useLatestApprovedReviews(6);
+
+  // ✅ Global stats for summary (ALL approved reviews)
+  const { data: stats } = useApprovedReviewStats();
 
   const path = (key: string) => getLocalizedPath(key, lang);
 
@@ -45,6 +56,7 @@ export default function Home() {
     }
   };
 
+  // ✅ FIX: observer reruns when testimonials arrive (prevents staying opacity-0)
   useEffect(() => {
     const elements = document.querySelectorAll(".fade-in");
     const observer = new IntersectionObserver(
@@ -53,6 +65,7 @@ export default function Home() {
           if (entry.isIntersecting) {
             entry.target.classList.add("opacity-100", "translate-y-0");
             entry.target.classList.remove("opacity-0", "translate-y-6");
+            observer.unobserve(entry.target);
           }
         });
       },
@@ -61,7 +74,7 @@ export default function Home() {
 
     elements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [latestReviews.length]);
 
   return (
     <div className="space-y-16 md:space-y-20">
@@ -355,6 +368,94 @@ export default function Home() {
       </section>
 
       <div className="tn-nature-sep h-8 mx-8 rounded-full" />
+
+      {/* ✅ TESTIMONIALS */}
+      {latestReviews.length > 0 ? (
+        <section className="px-4 md:px-8 fade-in opacity-0 translate-y-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
+              <div className="min-w-0">
+                <h3 className="text-2xl font-semibold">
+                  {t("home:testimonials.title", {
+                    defaultValue: "What customers say",
+                  })}
+                </h3>
+                <p className="text-muted-foreground">
+                  {t("home:testimonials.subtitle", {
+                    defaultValue: "Real experiences from TropiNord customers.",
+                  })}
+                </p>
+
+                {/* ✅ Mobile-friendly button */}
+                <div className="mt-3 sm:hidden">
+                  <Link
+                    to={`/${lang}/reviews`}
+                    className="inline-flex items-center justify-center w-full rounded-lg border px-4 py-2 text-sm font-medium hover:bg-accent transition"
+                  >
+                    {t("home:testimonials.seeAll", {
+                      defaultValue: "See all reviews",
+                    })}{" "}
+                    →
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right side: summary + desktop link */}
+              <div className="flex items-center justify-between sm:justify-end gap-3">
+                <ReviewSummary
+                  avg={Number(stats?.avg_rating ?? 0)}
+                  count={Number(stats?.review_count ?? latestReviews.length)}
+                  compact
+                />
+
+                <Link
+                  to={`/${lang}/reviews`}
+                  className="hidden sm:inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium hover:bg-accent transition"
+                >
+                  {t("home:testimonials.seeAll", {
+                    defaultValue: "See all reviews",
+                  })}{" "}
+                  →
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {latestReviews.slice(0, 3).map((r) => (
+                <div key={r.id} className="rounded-xl border bg-background p-4">
+                  <div className="text-sm font-semibold mb-2">
+                    {"★".repeat(
+                      Math.max(0, Math.min(5, Number(r.rating ?? 0))),
+                    )}
+                  </div>
+
+                  {r.body ? (
+                    <p className="text-sm text-muted-foreground line-clamp-4">
+                      “{r.body}”
+                    </p>
+                  ) : null}
+
+                  {(r as any).customer_name || (r as any).country ? (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {(r as any).customer_name ? (
+                        <span className="font-medium text-foreground">
+                          {(r as any).customer_name}
+                        </span>
+                      ) : null}
+                      {(r as any).customer_name && (r as any).country ? (
+                        <span className="mx-1">•</span>
+                      ) : null}
+                      {(r as any).country ? (
+                        <span>{(r as any).country}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {/* NEWSLETTER */}
       <section className="max-w-xl mx-auto px-4 text-center fade-in opacity-0 translate-y-6">

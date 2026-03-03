@@ -131,7 +131,7 @@ export function Footer() {
           <div className="order-3 space-y-5 md:justify-self-end">
             <div className="flex items-center gap-3 md:justify-end flex-wrap">
               <SocialIconLink
-                href="https://wa.me/+46700711713"
+                href="https://wa.me/46700711713"
                 label="WhatsApp"
               >
                 <MessageCircle className="h-5 w-5" />
@@ -145,7 +145,7 @@ export function Footer() {
                 <Youtube className="h-5 w-5" />
               </SocialIconLink>
 
-              <SocialIconLink href="https://www.tiktok.com/@tropinord?_r=1&_t=ZN-94MsThAL0oY" label="TikTok">
+              <SocialIconLink href="https://www.tiktok.com/@tropinord" label="TikTok">
                 <TikTokIcon className="h-5 w-5" />
               </SocialIconLink>
 

@@ -30,6 +30,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
+// ✅ Reviews integration (additive only)
+import { useLatestApprovedReviews } from "@/hooks/useLatestApprovedReviews";
+import { ReviewSummary } from "@/components/reviews/ReviewSummary";
+
 type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 
 interface AddressForm {
@@ -100,6 +104,13 @@ export default function Checkout() {
 
   const [swishOpen, setSwishOpen] = useState(false);
   const [swishData, setSwishData] = useState<SwishManualResponse | null>(null);
+
+  // ✅ Reviews data (additive only)
+  const { data: latestReviews = [] } = useLatestApprovedReviews(2);
+  const latestRatings = useMemo(
+    () => latestReviews.map((r) => Number(r.rating ?? 0)),
+    [latestReviews],
+  );
 
   const isMobileDevice = () => {
     if (typeof window === "undefined") return false;
@@ -708,6 +719,37 @@ export default function Checkout() {
                       <span>{t("checkout:total")}</span>
                       <span>{formatPrice(totalPrice, displayCurrency)}</span>
                     </div>
+
+                    {/* ✅ Trust box (additive only) */}
+                    {latestReviews.length > 0 ? (
+                      <div className="rounded-lg border p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-semibold">
+                            {t("checkout:trustedByCustomers", {
+                              defaultValue: "Trusted by customers",
+                            })}
+                          </span>
+                          <ReviewSummary
+                            ratings={latestRatings}
+                            count={latestReviews.length}
+                            compact
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          {latestReviews.map((r) =>
+                            r.body ? (
+                              <p
+                                key={r.id}
+                                className="text-xs text-muted-foreground line-clamp-2"
+                              >
+                                “{r.body}”
+                              </p>
+                            ) : null,
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
 
                     <Button
                       type="submit"
