@@ -33,15 +33,19 @@ const FAQ = lazy(() => import("./pages/FAQ"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const Checkout = lazy(() => import("./pages/Checkout"));
-const CheckoutSuccess = lazy(() => import("./pages/CheckoutSuccess")); // ✅ optional fallback
+const CheckoutSuccess = lazy(() => import("./pages/CheckoutSuccess")); // optional fallback
 const OrderConfirmation = lazy(() => import("./pages/OrderConfirmation"));
 const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const AdminOrders = lazy(() => import("./pages/AdminOrders"));
 const CurrencyConverter = lazy(() => import("./pages/CurrencyConverter"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-// ✅ Route-guard component (checkout-only auth)
+// Route-guard component (checkout-only auth)
 const RequireAuth = lazy(() => import("./components/RequireAuth"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+
+// ✅ Admin-only guard (does NOT change public/checkout behavior)
+const RequireAdmin = lazy(() => import("./components/RequireAdmin"));
 
 const queryClient = new QueryClient();
 
@@ -81,6 +85,7 @@ function LocalizedShell() {
     if (supported && i18n.language !== normalized) {
       void i18n.changeLanguage(normalized);
     }
+    // location.pathname intentionally included so changing /en -> /sv updates i18n
   }, [supported, normalized, location.pathname, i18n]);
 
   if (!supported) {
@@ -91,7 +96,7 @@ function LocalizedShell() {
 }
 
 /**
- * ✅ Handles Stripe/old backend hitting /checkout/success WITHOUT lang.
+ * Handles Stripe/old backend hitting /checkout/success WITHOUT lang.
  * Redirects to /:lang/checkout/success using current i18n language.
  */
 function CheckoutSuccessNoLangRedirect() {
@@ -117,7 +122,7 @@ const App = () => (
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<RootRedirect />} />
 
-                    {/* ✅ IMPORTANT: Catch non-localized Stripe success route */}
+                    {/* Catch non-localized Stripe success route */}
                     <Route
                       path="/checkout/success"
                       element={<CheckoutSuccessNoLangRedirect />}
@@ -125,7 +130,12 @@ const App = () => (
 
                     <Route path="/:lang" element={<LocalizedShell />}>
                       <Route index element={<Home />} />
+
+                      {/* Auth routes */}
                       <Route path="login" element={<Login />} />
+                      <Route path="auth/callback" element={<AuthCallback />} />
+
+                      {/* Public pages */}
                       <Route path="explore" element={<Index />} />
                       <Route path="about" element={<About />} />
                       <Route path="story" element={<OurStory />} />
@@ -133,7 +143,7 @@ const App = () => (
                       <Route path="privacy" element={<PrivacyPolicy />} />
                       <Route path="product/:slug" element={<ProductDetail />} />
 
-                      {/* ✅ Checkout requires auth */}
+                      {/* Checkout requires auth */}
                       <Route
                         path="checkout"
                         element={
@@ -143,7 +153,7 @@ const App = () => (
                         }
                       />
 
-                      {/* ✅ Optional fallback success route */}
+                      {/* Optional fallback success route */}
                       <Route
                         path="checkout/success"
                         element={<CheckoutSuccess />}
@@ -154,7 +164,7 @@ const App = () => (
                         element={<OrderConfirmation />}
                       />
 
-                      {/* ✅ OPTIONAL: Protect orders too (recommended) */}
+                      {/* Optional: protect orders too (recommended) */}
                       <Route
                         path="orders"
                         element={
@@ -167,7 +177,16 @@ const App = () => (
                       <Route path="converter" element={<CurrencyConverter />} />
                     </Route>
 
-                    <Route path="/admin/orders" element={<AdminOrders />} />
+                    {/* ✅ Admin route protected without affecting public browsing */}
+                    <Route
+                      path="/admin/orders"
+                      element={
+                        <RequireAdmin>
+                          <AdminOrders />
+                        </RequireAdmin>
+                      }
+                    />
+
                     <Route path="*" element={<NotFound />} />
                   </Route>
                 </Routes>

@@ -89,10 +89,19 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [markingPaidOrderId, setMarkingPaidOrderId] = useState<string | null>(null);
+  const [markingPaidOrderId, setMarkingPaidOrderId] = useState<string | null>(
+    null,
+  );
 
   const statuses: PaymentStatus[] = useMemo(
-    () => ["CREATED", "AWAITING_PAYMENT", "PAID", "FAILED", "CANCELLED", "REFUNDED"],
+    () => [
+      "CREATED",
+      "AWAITING_PAYMENT",
+      "PAID",
+      "FAILED",
+      "CANCELLED",
+      "REFUNDED",
+    ],
     [],
   );
 
@@ -169,7 +178,9 @@ export default function AdminOrders() {
         const orderNumber = (order.order_number || "").toLowerCase();
         const email = (order.email || "").toLowerCase();
         const fullName = (order.full_name || "").toLowerCase();
-        return orderNumber.includes(q) || email.includes(q) || fullName.includes(q);
+        return (
+          orderNumber.includes(q) || email.includes(q) || fullName.includes(q)
+        );
       });
     }
 
@@ -208,7 +219,10 @@ export default function AdminOrders() {
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: PaymentStatus) => {
+  const updateOrderStatus = async (
+    orderId: string,
+    newStatus: PaymentStatus,
+  ) => {
     const { error } = await supabase
       .from("orders")
       .update({ payment_status: newStatus })
@@ -237,12 +251,49 @@ export default function AdminOrders() {
     try {
       setMarkingPaidOrderId(order.id);
 
-      const { error } = await supabase.functions.invoke("admin-swish-mark-paid", {
-        body: { order_id: order.id },
-      });
+      // 1) Fetch pending attempts (server-side check + admin-only)
+      const { data: listData, error: listErr } =
+        await supabase.functions.invoke("admin-swish-list", { body: {} });
 
-      if (error) {
-        console.error("admin-swish-mark-paid error:", error);
+      if (listErr) {
+        console.error("admin-swish-list error:", listErr);
+        toast({
+          title: "Verification failed",
+          description: "Could not load Swish payment attempts.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const attempts = (listData?.items ?? []) as Array<{
+        id: string; // attempt_id
+        order_id: string;
+        status: string;
+        reference?: string;
+      }>;
+
+      const attempt = attempts.find((a) => a.order_id === order.id);
+
+      if (!attempt) {
+        toast({
+          title: "No pending Swish attempt",
+          description:
+            "This order has no pending Swish payment attempt to verify (it may already be paid).",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 2) Mark paid (this triggers send-notifications in your function)
+      const { error: markErr } = await supabase.functions.invoke(
+        "admin-swish-mark-paid",
+        {
+          body: { attempt_id: attempt.id, order_id: order.id },
+        },
+      );
+
+      if (markErr) {
+        console.error("admin-swish-mark-paid error:", markErr);
         toast({
           title: "Verification failed",
           description: "Could not mark Swish payment as paid.",
@@ -253,7 +304,8 @@ export default function AdminOrders() {
 
       toast({
         title: "Marked as paid",
-        description: "Swish payment verified and order updated.",
+        description:
+          "Swish payment verified and order updated. Emails sent via Resend.",
       });
 
       await fetchOrders();
@@ -265,7 +317,10 @@ export default function AdminOrders() {
   if (!isAdmin) {
     return (
       <>
-        <Header title="Admin orders" subtitle="Administrator access required." />
+        <Header
+          title="Admin orders"
+          subtitle="Administrator access required."
+        />
         <main>
           <PageShell className="py-16">
             <div className="text-center space-y-4">
@@ -284,7 +339,10 @@ export default function AdminOrders() {
 
   return (
     <>
-      <Header title="Admin orders" subtitle="Manage orders, search, and update statuses." />
+      <Header
+        title="Admin orders"
+        subtitle="Manage orders, search, and update statuses."
+      />
       <main>
         <PageShell>
           <Link
@@ -297,7 +355,11 @@ export default function AdminOrders() {
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <h1 className="text-3xl font-bold">Order Management</h1>
-            <Button onClick={() => void fetchOrders()} variant="outline" size="sm">
+            <Button
+              onClick={() => void fetchOrders()}
+              variant="outline"
+              size="sm"
+            >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
@@ -349,7 +411,13 @@ export default function AdminOrders() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-accent-foreground">
-                  {orders.filter((o) => o.payment_status === "AWAITING_PAYMENT" || o.payment_status === "CREATED").length}
+                  {
+                    orders.filter(
+                      (o) =>
+                        o.payment_status === "AWAITING_PAYMENT" ||
+                        o.payment_status === "CREATED",
+                    ).length
+                  }
                 </div>
                 <p className="text-xs text-muted-foreground">Pending</p>
               </CardContent>
@@ -360,7 +428,13 @@ export default function AdminOrders() {
                   {formatPrice(
                     orders
                       .filter((o) => o.payment_status === "PAID")
-                      .reduce((sum, o) => sum + (((o.totals as unknown as OrderTotals)?.total ?? 0) as number), 0),
+                      .reduce(
+                        (sum, o) =>
+                          sum +
+                          (((o.totals as unknown as OrderTotals)?.total ??
+                            0) as number),
+                        0,
+                      ),
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">Revenue</p>
@@ -405,7 +479,9 @@ export default function AdminOrders() {
                 const swish = isOrderSwish(order);
                 const canVerifySwish = swish && order.payment_status !== "PAID";
 
-                const meta = (order.provider_metadata as unknown as ProviderMetadata) ?? {};
+                const meta =
+                  (order.provider_metadata as unknown as ProviderMetadata) ??
+                  {};
                 const swishNumber = meta.swish_number ?? "1230558973";
                 const swishRef = meta.swish_reference;
 
@@ -414,12 +490,19 @@ export default function AdminOrders() {
                     <CardHeader className="pb-3">
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                         <div className="flex items-center gap-3 flex-wrap">
-                          <CardTitle className="text-lg">{order.order_number}</CardTitle>
-                          <Badge variant={getStatusBadgeVariant(order.payment_status)}>
+                          <CardTitle className="text-lg">
+                            {order.order_number}
+                          </CardTitle>
+                          <Badge
+                            variant={getStatusBadgeVariant(
+                              order.payment_status,
+                            )}
+                          >
                             {order.payment_status}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
-                            via {order.payment_method} / {order.payment_provider}
+                            via {order.payment_method} /{" "}
+                            {order.payment_provider}
                           </span>
                         </div>
 
@@ -427,7 +510,10 @@ export default function AdminOrders() {
                           <Select
                             value={order.payment_status}
                             onValueChange={(value) =>
-                              void updateOrderStatus(order.id, value as PaymentStatus)
+                              void updateOrderStatus(
+                                order.id,
+                                value as PaymentStatus,
+                              )
                             }
                           >
                             <SelectTrigger className="w-44">
@@ -451,7 +537,9 @@ export default function AdminOrders() {
                               onClick={() => void verifySwishPayment(order)}
                             >
                               <BadgeCheck className="h-4 w-4" />
-                              {markingPaidOrderId === order.id ? "Verifying…" : "Verify Swish"}
+                              {markingPaidOrderId === order.id
+                                ? "Verifying…"
+                                : "Verify Swish"}
                             </Button>
                           ) : null}
 
@@ -468,18 +556,25 @@ export default function AdminOrders() {
 
                             <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                               <DialogHeader>
-                                <DialogTitle>Order {order.order_number}</DialogTitle>
+                                <DialogTitle>
+                                  Order {order.order_number}
+                                </DialogTitle>
                                 <DialogDescription>
-                                  View customer details, shipping address, items, totals, and timestamps.
+                                  View customer details, shipping address,
+                                  items, totals, and timestamps.
                                 </DialogDescription>
                               </DialogHeader>
 
                               <div className="space-y-6">
                                 {/* Customer Info */}
                                 <div>
-                                  <h4 className="font-semibold mb-2">Customer</h4>
+                                  <h4 className="font-semibold mb-2">
+                                    Customer
+                                  </h4>
                                   <div className="space-y-1 text-sm">
-                                    <p className="font-medium">{order.full_name}</p>
+                                    <p className="font-medium">
+                                      {order.full_name}
+                                    </p>
                                     <p className="flex items-center gap-2">
                                       <Mail className="h-3 w-3" />
                                       {order.email}
@@ -495,26 +590,36 @@ export default function AdminOrders() {
 
                                 {/* Payment meta */}
                                 <div>
-                                  <h4 className="font-semibold mb-2">Payment</h4>
+                                  <h4 className="font-semibold mb-2">
+                                    Payment
+                                  </h4>
                                   <div className="text-sm space-y-1">
                                     <p>
-                                      <span className="text-muted-foreground">Method:</span>{" "}
+                                      <span className="text-muted-foreground">
+                                        Method:
+                                      </span>{" "}
                                       {order.payment_method}
                                     </p>
                                     <p>
-                                      <span className="text-muted-foreground">Provider:</span>{" "}
+                                      <span className="text-muted-foreground">
+                                        Provider:
+                                      </span>{" "}
                                       {order.payment_provider}
                                     </p>
 
                                     {swish ? (
                                       <>
                                         <p className="break-all">
-                                          <span className="text-muted-foreground">Swish number:</span>{" "}
+                                          <span className="text-muted-foreground">
+                                            Swish number:
+                                          </span>{" "}
                                           {swishNumber}
                                         </p>
                                         {swishRef ? (
                                           <p className="break-all">
-                                            <span className="text-muted-foreground">Reference:</span>{" "}
+                                            <span className="text-muted-foreground">
+                                              Reference:
+                                            </span>{" "}
                                             {swishRef}
                                           </p>
                                         ) : null}
@@ -523,7 +628,9 @@ export default function AdminOrders() {
 
                                     {order.provider_session_id ? (
                                       <p className="break-all">
-                                        <span className="text-muted-foreground">Session ID:</span>{" "}
+                                        <span className="text-muted-foreground">
+                                          Session ID:
+                                        </span>{" "}
                                         {order.provider_session_id}
                                       </p>
                                     ) : null}
@@ -532,7 +639,9 @@ export default function AdminOrders() {
 
                                 {/* Address */}
                                 <div>
-                                  <h4 className="font-semibold mb-2">Shipping Address</h4>
+                                  <h4 className="font-semibold mb-2">
+                                    Shipping Address
+                                  </h4>
                                   <div className="text-sm flex items-start gap-2">
                                     <MapPin className="h-3 w-3 mt-1" />
                                     <div>
@@ -550,11 +659,19 @@ export default function AdminOrders() {
                                   <h4 className="font-semibold mb-2">Items</h4>
                                   <div className="space-y-2">
                                     {items.map((item, idx) => (
-                                      <div key={idx} className="flex justify-between text-sm">
+                                      <div
+                                        key={idx}
+                                        className="flex justify-between text-sm"
+                                      >
                                         <span>
                                           {item.title} × {item.quantity}
                                         </span>
-                                        <span>{formatPrice(item.price_cents * item.quantity, item.currency)}</span>
+                                        <span>
+                                          {formatPrice(
+                                            item.price_cents * item.quantity,
+                                            item.currency,
+                                          )}
+                                        </span>
                                       </div>
                                     ))}
                                   </div>
@@ -563,20 +680,43 @@ export default function AdminOrders() {
                                 {/* Totals */}
                                 <div className="border-t pt-4 space-y-1">
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Subtotal</span>
-                                    <span>{formatPrice(totals.subtotal, order.currency)}</span>
+                                    <span className="text-muted-foreground">
+                                      Subtotal
+                                    </span>
+                                    <span>
+                                      {formatPrice(
+                                        totals.subtotal,
+                                        order.currency,
+                                      )}
+                                    </span>
                                   </div>
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Shipping</span>
-                                    <span>{formatPrice(totals.shipping, order.currency)}</span>
+                                    <span className="text-muted-foreground">
+                                      Shipping
+                                    </span>
+                                    <span>
+                                      {formatPrice(
+                                        totals.shipping,
+                                        order.currency,
+                                      )}
+                                    </span>
                                   </div>
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Tax</span>
-                                    <span>{formatPrice(totals.tax, order.currency)}</span>
+                                    <span className="text-muted-foreground">
+                                      Tax
+                                    </span>
+                                    <span>
+                                      {formatPrice(totals.tax, order.currency)}
+                                    </span>
                                   </div>
                                   <div className="flex justify-between font-semibold">
                                     <span>Total</span>
-                                    <span>{formatPrice(totals.total, order.currency)}</span>
+                                    <span>
+                                      {formatPrice(
+                                        totals.total,
+                                        order.currency,
+                                      )}
+                                    </span>
                                   </div>
                                 </div>
 
@@ -595,7 +735,9 @@ export default function AdminOrders() {
                     <CardContent>
                       <div className="grid sm:grid-cols-3 gap-4 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Customer:</span>{" "}
+                          <span className="text-muted-foreground">
+                            Customer:
+                          </span>{" "}
                           <span className="font-medium">{order.full_name}</span>
                         </div>
                         <div>

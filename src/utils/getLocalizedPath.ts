@@ -9,7 +9,7 @@ function normalizeLang(input?: string): SupportedLanguage {
 export function getLocalizedPath(
   key: string,
   lang?: string,
-  params?: Record<string, string | number>
+  params?: Record<string, string | number>,
 ): string {
   const l = normalizeLang(lang);
 
@@ -27,6 +27,7 @@ export function getLocalizedPath(
     converter: `/${l}/converter`,
     login: `/${l}/login`,
     product: `/${l}/product/:slug`,
+    authCallback: `/${l}/auth/callback`,
   };
 
   let path = base[key] ?? `/${l}/${key}`;

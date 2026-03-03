@@ -137,20 +137,20 @@ export function Footer() {
                 <MessageCircle className="h-5 w-5" />
               </SocialIconLink>
 
-              <SocialIconLink href="https://www.facebook.com/" label="Facebook">
+              <SocialIconLink href="https://www.facebook.com/profile.php?id=61587664221455" label="Facebook">
                 <Facebook className="h-5 w-5" />
               </SocialIconLink>
 
-              <SocialIconLink href="https://www.youtube.com/" label="YouTube">
+              <SocialIconLink href="https://www.youtube.com/channel/UCD5Asc8IiVf76VipxABpUZA" label="YouTube">
                 <Youtube className="h-5 w-5" />
               </SocialIconLink>
 
-              <SocialIconLink href="https://www.tiktok.com/" label="TikTok">
+              <SocialIconLink href="https://www.tiktok.com/@tropinord?_r=1&_t=ZN-94MsThAL0oY" label="TikTok">
                 <TikTokIcon className="h-5 w-5" />
               </SocialIconLink>
 
               <SocialIconLink
-                href="https://www.instagram.com/"
+                href="https://www.instagram.com/tropinord/"
                 label="Instagram"
               >
                 <Instagram className="h-5 w-5" />

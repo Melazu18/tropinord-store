@@ -1,3 +1,4 @@
+// supabase/functions/create-stripe-checkout/index.ts
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
@@ -6,6 +7,12 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:8081",
   "http://127.0.0.1:8081",
   "https://tropinord-store.vercel.app",
+
+  // ✅ Custom domains
+  "https://tropinord.com",
+  "https://www.tropinord.com",
+  "https://tropinord.se",
+  "https://www.tropinord.se",
 ]);
 
 function buildCorsHeaders(origin: string | null) {
@@ -19,14 +26,17 @@ function buildCorsHeaders(origin: string | null) {
       "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
-    "Vary": "Origin",
+    Vary: "Origin",
   };
 }
 
 function json(origin: string | null, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...buildCorsHeaders(origin), "Content-Type": "application/json" },
+    headers: {
+      ...buildCorsHeaders(origin),
+      "Content-Type": "application/json",
+    },
   });
 }
 
@@ -73,17 +83,21 @@ serve(async (req) => {
   const origin = req.headers.get("origin");
   const corsHeaders = buildCorsHeaders(origin);
 
-  // ✅ Preflight
+  // ✅ Preflight (must return correct ACAO for allowed origins)
   if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
+    // Use 204 to satisfy preflight cleanly
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  // ✅ Block unknown origins (prevents accidental “localhost fallback” in prod)
+  // ✅ Block unknown origins
   if (corsHeaders["Access-Control-Allow-Origin"] === "null") {
-    return new Response(JSON.stringify({ ok: false, error: "Origin not allowed" }), {
-      status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: false, error: "Origin not allowed" }),
+      {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   if (req.method !== "POST") {
@@ -94,10 +108,24 @@ serve(async (req) => {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    // ✅ IMPORTANT: set SITE_URL in Supabase Edge Function env vars to https://tropinord.com
     const siteUrl = Deno.env.get("SITE_URL") ?? "http://localhost:8081";
 
-    if (!stripeKey) return json(origin, { ok: false, error: "STRIPE_SECRET_KEY missing" }, 500);
-    if (!supabaseUrl || !serviceKey) return json(origin, { ok: false, error: "Supabase env vars missing" }, 500);
+    if (!stripeKey) {
+      return json(
+        origin,
+        { ok: false, error: "STRIPE_SECRET_KEY missing" },
+        500,
+      );
+    }
+    if (!supabaseUrl || !serviceKey) {
+      return json(
+        origin,
+        { ok: false, error: "Supabase env vars missing" },
+        500,
+      );
+    }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-05-28.basil" });
     const supabase = createClient(supabaseUrl, serviceKey);
@@ -115,8 +143,12 @@ serve(async (req) => {
 
     const payload = (await req.json()) as Payload;
 
-    if (!payload.items?.length) return json(origin, { ok: false, error: "No items provided" }, 400);
-    if (!payload.customer_name?.trim()) return json(origin, { ok: false, error: "Missing customer_name" }, 400);
+    if (!payload.items?.length) {
+      return json(origin, { ok: false, error: "No items provided" }, 400);
+    }
+    if (!payload.customer_name?.trim()) {
+      return json(origin, { ok: false, error: "Missing customer_name" }, 400);
+    }
 
     if (
       !payload.address?.street ||
@@ -128,7 +160,11 @@ serve(async (req) => {
     }
 
     for (const it of payload.items) {
-      if (!it.product_id || !Number.isInteger(it.quantity) || it.quantity <= 0) {
+      if (
+        !it.product_id ||
+        !Number.isInteger(it.quantity) ||
+        it.quantity <= 0
+      ) {
         return json(origin, { ok: false, error: "Invalid items" }, 400);
       }
     }
@@ -143,28 +179,50 @@ serve(async (req) => {
       .select("id,title,price_cents,currency,status,inventory")
       .in("id", ids);
 
-    if (pErr || !products) return json(origin, { ok: false, error: "Product lookup failed" }, 500);
-    if (products.length !== ids.length) return json(origin, { ok: false, error: "Some products not found" }, 400);
+    if (pErr || !products) {
+      return json(origin, { ok: false, error: "Product lookup failed" }, 500);
+    }
+    if (products.length !== ids.length) {
+      return json(origin, { ok: false, error: "Some products not found" }, 400);
+    }
 
-    // ✅ Enforce purchasable products (prevents 0-price and out-of-stock checkout)
+    // ✅ Enforce purchasable products
     for (const p of products) {
       const inv = Number(p.inventory ?? 0);
       const price = Number(p.price_cents ?? 0);
       if (String(p.status).toUpperCase() !== "PUBLISHED") {
-        return json(origin, { ok: false, error: `Product not published: ${p.id}` }, 400);
+        return json(
+          origin,
+          { ok: false, error: `Product not published: ${p.id}` },
+          400,
+        );
       }
       if (price <= 0) {
-        return json(origin, { ok: false, error: `Product has no price: ${p.id}` }, 400);
+        return json(
+          origin,
+          { ok: false, error: `Product has no price: ${p.id}` },
+          400,
+        );
       }
       if (inv <= 0) {
-        return json(origin, { ok: false, error: `Product out of stock: ${p.id}` }, 400);
+        return json(
+          origin,
+          { ok: false, error: `Product out of stock: ${p.id}` },
+          400,
+        );
       }
     }
 
     // Ensure single currency per checkout
-    const currencySet = new Set(products.map((p) => (p.currency ?? "SEK").toUpperCase()));
+    const currencySet = new Set(
+      products.map((p) => (p.currency ?? "SEK").toUpperCase()),
+    );
     if (currencySet.size !== 1) {
-      return json(origin, { ok: false, error: "Mixed currencies not supported" }, 400);
+      return json(
+        origin,
+        { ok: false, error: "Mixed currencies not supported" },
+        400,
+      );
     }
 
     const currency = [...currencySet][0].toUpperCase();
@@ -183,16 +241,22 @@ serve(async (req) => {
       };
     });
 
-    const subtotal = items.reduce((sum, it) => sum + it.price_cents * it.quantity, 0);
+    const subtotal = items.reduce(
+      (sum, it) => sum + it.price_cents * it.quantity,
+      0,
+    );
     const totals = { subtotal, shipping: 0, tax: 0, total: subtotal };
 
     const order_number = randomOrderNumber();
 
-    // ✅ Guest token for public receipt (Stripe guest flow)
+    // ✅ Guest token for public receipt
     const guestToken =
-      crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+      crypto.randomUUID().replace(/-/g, "") +
+      crypto.randomUUID().replace(/-/g, "");
     const guestTokenHash = await sha256Hex(guestToken);
-    const guestTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(); // 7 days
+    const guestTokenExpiresAt = new Date(
+      Date.now() + 1000 * 60 * 60 * 24 * 7,
+    ).toISOString();
 
     const { data: order, error: oErr } = await supabase
       .from("orders")
@@ -212,14 +276,15 @@ serve(async (req) => {
         payment_provider: "STRIPE",
         payment_status: "AWAITING_PAYMENT",
 
-        // ✅ used by get-order-public
         guest_access_token_hash: guestTokenHash,
         guest_access_token_expires_at: guestTokenExpiresAt,
       })
       .select("id,order_number")
       .single();
 
-    if (oErr || !order) return json(origin, { ok: false, error: "Failed to create order" }, 500);
+    if (oErr || !order) {
+      return json(origin, { ok: false, error: "Failed to create order" }, 500);
+    }
 
     const line_items = items.map((it) => ({
       quantity: it.quantity,
@@ -230,7 +295,6 @@ serve(async (req) => {
       },
     }));
 
-    // ✅ CRITICAL: match your OrderConfirmation expectations: ?order=...&token=...
     const successUrl =
       `${checkoutBase}/order-confirmation` +
       `?order=${encodeURIComponent(order.order_number)}` +
@@ -277,9 +341,17 @@ serve(async (req) => {
       },
     });
 
-    return json(origin, { ok: true, url: session.url, order_number: order.order_number }, 200);
+    return json(
+      origin,
+      { ok: true, url: session.url, order_number: order.order_number },
+      200,
+    );
   } catch (err: any) {
     console.error(err);
-    return json(origin, { ok: false, error: err?.message ?? "Unknown error" }, 500);
+    return json(
+      origin,
+      { ok: false, error: err?.message ?? "Unknown error" },
+      500,
+    );
   }
 });

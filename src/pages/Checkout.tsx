@@ -1,13 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  CreditCard,
-  Smartphone,
-  DollarSign,
-  Copy,
-  ExternalLink,
-} from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Header } from "@/components/Header";
@@ -66,6 +59,20 @@ type SwishManualResponse = {
   qr_svg: string;
   swish_deeplink?: string;
 };
+
+// Visual-only payment logo component (no functional impact)
+function PaymentLogo({ src, alt }: { src: string; alt: string }) {
+  return (
+    <div className="h-10 w-12 flex items-center justify-center rounded-md bg-background border">
+      <img
+        src={src}
+        alt={alt}
+        className="max-h-7 max-w-[40px] object-contain"
+        loading="lazy"
+      />
+    </div>
+  );
+}
 
 export default function Checkout() {
   const { t } = useTranslation(["checkout", "errors", "common"]);
@@ -228,6 +235,7 @@ export default function Checkout() {
         return;
       }
 
+      // CARD + PAYPAL still go through Stripe checkout (existing behavior)
       const { data, error } = await supabase.functions.invoke(
         "create-stripe-checkout",
         { body: payload },
@@ -541,13 +549,17 @@ export default function Checkout() {
                       }
                       className="space-y-3"
                     >
+                      {/* CARD */}
                       <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-accent cursor-pointer">
                         <RadioGroupItem value="CARD" id="card" />
                         <Label
                           htmlFor="card"
                           className="flex items-center gap-3 cursor-pointer flex-1"
                         >
-                          <CreditCard className="h-5 w-5 text-muted-foreground" />
+                          <PaymentLogo
+                            src="/payments/stripeLogo1.png"
+                            alt="Stripe"
+                          />
                           <div>
                             <p className="font-medium">
                               {t("checkout:payCardTitle")}
@@ -559,6 +571,7 @@ export default function Checkout() {
                         </Label>
                       </div>
 
+                      {/* SWISH */}
                       <div
                         className={`flex items-center space-x-3 p-4 border rounded-lg hover:bg-accent cursor-pointer ${
                           !swishAllowed ? "opacity-50 cursor-not-allowed" : ""
@@ -577,7 +590,10 @@ export default function Checkout() {
                           htmlFor="swish"
                           className="flex items-center gap-3 cursor-pointer flex-1"
                         >
-                          <Smartphone className="h-5 w-5 text-muted-foreground" />
+                          <PaymentLogo
+                            src="/payments/swishLogo2.png"
+                            alt="Swish"
+                          />
                           <div>
                             <p className="font-medium">
                               {t("checkout:paySwishTitle")}
@@ -594,13 +610,17 @@ export default function Checkout() {
                         </Label>
                       </div>
 
+                      {/* PAYPAL (visual only; still routes via Stripe function as before) */}
                       <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-accent cursor-pointer">
                         <RadioGroupItem value="PAYPAL" id="paypal" />
                         <Label
                           htmlFor="paypal"
                           className="flex items-center gap-3 cursor-pointer flex-1"
                         >
-                          <DollarSign className="h-5 w-5 text-muted-foreground" />
+                          <PaymentLogo
+                            src="/payments/paypal011.jpeg"
+                            alt="PayPal"
+                          />
                           <div>
                             <p className="font-medium">
                               {t("checkout:payPaypalTitle")}
