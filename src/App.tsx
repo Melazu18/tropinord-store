@@ -40,6 +40,10 @@ const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const AdminOrders = lazy(() => import("./pages/AdminOrders"));
 const CurrencyConverter = lazy(() => import("./pages/CurrencyConverter"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const B2B = lazy(() => import("./pages/B2B"));
+
+// ✅ NEW: post-purchase review submission page (must exist and default-export a component)
+const ReviewSubmit = lazy(() => import("./pages/ReviewSubmit"));
 
 // Route-guard component (checkout-only auth)
 const RequireAuth = lazy(() => import("./components/RequireAuth"));
@@ -86,7 +90,6 @@ function LocalizedShell() {
     if (supported && i18n.language !== normalized) {
       void i18n.changeLanguage(normalized);
     }
-    // location.pathname intentionally included so changing /en -> /sv updates i18n
   }, [supported, normalized, location.pathname, i18n]);
 
   if (!supported) {
@@ -131,7 +134,12 @@ const App = () => (
 
                     <Route path="/:lang" element={<LocalizedShell />}>
                       <Route index element={<Home />} />
+
+                      {/* Reviews (public list) */}
                       <Route path="reviews" element={<Reviews />} />
+
+                      {/* ✅ Review submission (token-based) */}
+                      <Route path="review" element={<ReviewSubmit />} />
 
                       {/* Auth routes */}
                       <Route path="login" element={<Login />} />
@@ -144,6 +152,9 @@ const App = () => (
                       <Route path="faq" element={<FAQ />} />
                       <Route path="privacy" element={<PrivacyPolicy />} />
                       <Route path="product/:slug" element={<ProductDetail />} />
+
+                      {/* ✅ NEW: B2B / Reseller portal */}
+                      <Route path="b2b" element={<B2B />} />
 
                       {/* Checkout requires auth */}
                       <Route
@@ -161,12 +172,13 @@ const App = () => (
                         element={<CheckoutSuccess />}
                       />
 
+                      {/* Receipt */}
                       <Route
                         path="order-confirmation"
                         element={<OrderConfirmation />}
                       />
 
-                      {/* Optional: protect orders too (recommended) */}
+                      {/* Orders */}
                       <Route
                         path="orders"
                         element={

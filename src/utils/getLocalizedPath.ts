@@ -1,3 +1,4 @@
+// src/utils/getLocalizedPath.ts
 import { supportedLanguages, type SupportedLanguage } from "@/i18n/resources";
 
 function normalizeLang(input?: string): SupportedLanguage {
@@ -22,6 +23,10 @@ export function getLocalizedPath(
     privacy: `/${l}/privacy`,
     contact: `/${l}/contact`,
     wholesale: `/${l}/wholesale`,
+
+    // ✅ NEW: B2B / Reseller portal
+    b2b: `/${l}/b2b`,
+
     checkout: `/${l}/checkout`,
     orders: `/${l}/orders`,
     converter: `/${l}/converter`,

@@ -2,7 +2,7 @@
  * i18n bootstrap
  *
  * - Adds language support: Swedish, English, Arabic, French, German, Swahili.
- * - Uses browser language + localStorage detection.
+ * - Uses URL path (/:lang/...), then localStorage, then navigator.
  * - Best-effort location hint via timezone/country (no hard dependency).
  * - Sets <html lang> and <html dir> for RTL languages.
  */
@@ -14,7 +14,7 @@ import {
   rtlLanguages,
   supportedLanguages,
   type SupportedLanguage,
-  // if you exported NAMESPACES, you can use it instead of the array below
+  NAMESPACES,
 } from "./resources";
 
 const STORAGE_KEY = "tropinord:lang";
@@ -23,10 +23,6 @@ function isSupported(lang: string): lang is SupportedLanguage {
   return (supportedLanguages.map((l) => l.code) as string[]).includes(lang);
 }
 
-/**
- * Optional, lightweight hint for Swedish users.
- * If the user's timezone looks Swedish and no language is saved, prefer Swedish.
- */
 function guessFromTimezone(): SupportedLanguage | null {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -50,30 +46,35 @@ void i18n
     resources,
     fallbackLng: "en",
 
-    // ✅ ADD THESE TWO LINES
     defaultNS: "common",
-    ns: [
-      "common",
-      "nav",
-      "footer",
-      "newsletter",
-      "errors",
-      "checkout",
-      "home",
-      "catalog",
-    ],
+    ns: [...NAMESPACES],
 
     interpolation: { escapeValue: false },
     supportedLngs: supportedLanguages.map((l) => l.code),
+
     detection: {
-      order: ["localStorage", "navigator", "htmlTag"],
+      // ✅ IMPORTANT for routes like /sv/b2b, /en/explore, etc.
+      order: ["path", "localStorage", "navigator", "htmlTag"],
+      lookupFromPathIndex: 0,
+
       lookupLocalStorage: STORAGE_KEY,
       caches: ["localStorage"],
     },
+
+    react: { useSuspense: false },
   });
 
 // Apply initial lang/dir as soon as possible.
 const initial = ((): SupportedLanguage => {
+  // Prefer language from URL path first: /sv/..., /en/...
+  try {
+    const seg0 = window.location.pathname.split("/").filter(Boolean)[0] || "";
+    const fromPath = seg0.split("-")[0]; // "sv-SE" -> "sv"
+    if (fromPath && isSupported(fromPath)) return fromPath;
+  } catch {
+    // ignore
+  }
+
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved && isSupported(saved)) return saved;
 
@@ -86,6 +87,7 @@ const initial = ((): SupportedLanguage => {
   const nav = (navigator.languages?.[0] || navigator.language || "en").split(
     "-",
   )[0];
+
   return (isSupported(nav) ? nav : "en") as SupportedLanguage;
 })();
 

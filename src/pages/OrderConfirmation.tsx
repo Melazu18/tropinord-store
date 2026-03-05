@@ -3,8 +3,8 @@
  * Shows a single order receipt after checkout.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, CheckCircle, Home, Package } from "lucide-react";
+import { Link, useSearchParams, useParams, useNavigate } from "react-router-dom";
+import { ArrowRight, CheckCircle, Home, Package, MessageSquareText } from "lucide-react";
 import { Header } from "@/components/Header";
 import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
+import { normalizeSupportedLang } from "@/utils/getLocalizedPath";
 
 interface OrderItem {
   product_id: string;
@@ -70,6 +71,10 @@ function isOrderLike(x: any): x is Order {
 export default function OrderConfirmation() {
   const { clearCart } = useCart();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const { lang: langParam } = useParams<{ lang?: string }>();
+  const lang = normalizeSupportedLang(langParam);
 
   // ✅ Current expected params from Stripe success_url:
   // /order-confirmation?order=TN-...&token=...
@@ -83,11 +88,12 @@ export default function OrderConfirmation() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [isCreatingReviewLink, setIsCreatingReviewLink] = useState(false);
+
   useEffect(() => {
     let isMounted = true;
 
     async function load() {
-      // If user lands here with session_id only, explain clearly.
       if (!orderNumber) {
         if (sessionId) {
           setError(
@@ -119,9 +125,6 @@ export default function OrderConfirmation() {
           return;
         }
 
-        // Support BOTH response shapes:
-        // 1) { ok: true, order: {...} }
-        // 2) { ok: true, ...orderFields }
         const payload = (data as any).order ?? data;
 
         if (!isOrderLike(payload)) {
@@ -139,7 +142,6 @@ export default function OrderConfirmation() {
           totals: payload.totals as unknown as OrderTotals,
         });
 
-        // ✅ Clear cart only after valid receipt is loaded
         clearCart();
       } catch (e) {
         console.error(e);
@@ -163,6 +165,33 @@ export default function OrderConfirmation() {
       (order?.currency ? String(order.currency) : "SEK")
     );
   }, [order]);
+
+  const createReviewLink = async () => {
+    if (!orderNumber) return;
+
+    try {
+      setIsCreatingReviewLink(true);
+
+      const { data, error } = await supabase.functions.invoke("create-review-token", {
+        body: {
+          order_number: orderNumber,
+          token: guestToken ?? null,
+          lang,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.ok || !data?.token) throw new Error(data?.error ?? "Could not create review link");
+
+      navigate(`/${lang}/review?token=${encodeURIComponent(String(data.token))}`);
+    } catch (e) {
+      console.error(e);
+      // Silent fail is fine; keep receipt intact
+      alert("Could not create review link. Please try again later.");
+    } finally {
+      setIsCreatingReviewLink(false);
+    }
+  };
 
   return (
     <>
@@ -191,9 +220,7 @@ export default function OrderConfirmation() {
               <Card>
                 <CardContent className="p-8 text-center space-y-4">
                   <Package className="h-10 w-10 mx-auto text-muted-foreground" />
-                  <h2 className="text-xl font-semibold">
-                    Unable to load order
-                  </h2>
+                  <h2 className="text-xl font-semibold">Unable to load order</h2>
                   <p className="text-muted-foreground">{error}</p>
                   <Button asChild>
                     <Link to="/">Back to catalog</Link>
@@ -208,12 +235,9 @@ export default function OrderConfirmation() {
                       <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-900 mb-4">
                         <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
                       </div>
-                      <h2 className="text-2xl font-bold mb-2">
-                        Thank you for your order
-                      </h2>
+                      <h2 className="text-2xl font-bold mb-2">Thank you for your order</h2>
                       <p className="text-muted-foreground">
-                        Order{" "}
-                        <span className="font-mono">{order.order_number}</span>
+                        Order <span className="font-mono">{order.order_number}</span>
                       </p>
                     </div>
 
@@ -222,30 +246,20 @@ export default function OrderConfirmation() {
                     <div className="grid md:grid-cols-2 gap-8">
                       <div className="space-y-2">
                         <h3 className="font-semibold">Customer</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {order.full_name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {order.email}
-                        </p>
+                        <p className="text-sm text-muted-foreground">{order.full_name}</p>
+                        <p className="text-sm text-muted-foreground">{order.email}</p>
                         {order.phone ? (
-                          <p className="text-sm text-muted-foreground">
-                            {order.phone}
-                          </p>
+                          <p className="text-sm text-muted-foreground">{order.phone}</p>
                         ) : null}
                       </div>
 
                       <div className="space-y-2">
                         <h3 className="font-semibold">Shipping address</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {order.address.street}
-                        </p>
+                        <p className="text-sm text-muted-foreground">{order.address.street}</p>
                         <p className="text-sm text-muted-foreground">
                           {order.address.postal_code} {order.address.city}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          {order.address.country}
-                        </p>
+                        <p className="text-sm text-muted-foreground">{order.address.country}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -262,15 +276,10 @@ export default function OrderConfirmation() {
                         >
                           <div>
                             <p className="font-medium">{item.title}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Qty: {item.quantity}
-                            </p>
+                            <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
                           </div>
                           <p className="font-medium">
-                            {formatMoney(
-                              item.price_cents * item.quantity,
-                              item.currency,
-                            )}
+                            {formatMoney(item.price_cents * item.quantity, item.currency)}
                           </p>
                         </div>
                       ))}
@@ -281,15 +290,11 @@ export default function OrderConfirmation() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Subtotal</span>
-                        <span>
-                          {formatMoney(order.totals.subtotal, currency)}
-                        </span>
+                        <span>{formatMoney(order.totals.subtotal, currency)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Shipping</span>
-                        <span>
-                          {formatMoney(order.totals.shipping, currency)}
-                        </span>
+                        <span>{formatMoney(order.totals.shipping, currency)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Tax</span>
@@ -311,11 +316,23 @@ export default function OrderConfirmation() {
                       Back to catalog
                     </Link>
                   </Button>
+
                   <Button asChild>
                     <Link to="/orders">
                       View orders
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
+                  </Button>
+
+                  {/* ✅ New: Leave a review (verified by token) */}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={createReviewLink}
+                    disabled={isCreatingReviewLink}
+                  >
+                    <MessageSquareText className="h-4 w-4 mr-2" />
+                    {isCreatingReviewLink ? "Preparing..." : "Leave a review"}
                   </Button>
                 </div>
               </div>
