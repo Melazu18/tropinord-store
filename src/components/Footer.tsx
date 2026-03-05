@@ -68,11 +68,17 @@ function SocialIconLink(props: {
 
 export function Footer() {
   const year = new Date().getFullYear();
-  const { t, i18n } = useTranslation(["footer"]);
+
+  // ✅ include namespaces we actually use
+  const { t, i18n } = useTranslation(["footer", "common", "nav"]);
+
   const params = useParams<RouteParams>();
   const lang = normalizeSupportedLang(params.lang || i18n.language);
-
   const path = (key: string) => getLocalizedPath(key, lang);
+
+  // ✅ Translatable social labels (with safe fallback)
+  const socialLabel = (key: string, fallback: string) =>
+    t(`footer:social.${key}`, { defaultValue: fallback });
 
   return (
     <footer className="border-t bg-card/70 backdrop-blur supports-[backdrop-filter]:bg-card/50">
@@ -109,7 +115,7 @@ export function Footer() {
             <Link
               to={path("home")}
               className="inline-flex items-center gap-3"
-              aria-label="Home"
+              aria-label={t("nav:home", { defaultValue: "Home" })}
             >
               <img
                 src="/tropiLogo004.png"
@@ -132,30 +138,49 @@ export function Footer() {
             <div className="flex items-center gap-3 md:justify-end flex-wrap">
               <SocialIconLink
                 href="https://wa.me/46700711713"
-                label="WhatsApp"
+                label={socialLabel("whatsapp", "WhatsApp")}
               >
                 <MessageCircle className="h-5 w-5" />
               </SocialIconLink>
 
-              <SocialIconLink href="https://www.facebook.com/profile.php?id=61587664221455" label="Facebook">
+              <SocialIconLink
+                href="https://www.facebook.com/profile.php?id=61587664221455"
+                label={socialLabel("facebook", "Facebook")}
+              >
                 <Facebook className="h-5 w-5" />
               </SocialIconLink>
 
-              <SocialIconLink href="https://www.youtube.com/channel/UCD5Asc8IiVf76VipxABpUZA" label="YouTube">
+              <SocialIconLink
+                href="https://www.youtube.com/channel/UCD5Asc8IiVf76VipxABpUZA"
+                label={socialLabel("youtube", "YouTube")}
+              >
                 <Youtube className="h-5 w-5" />
               </SocialIconLink>
 
-              <SocialIconLink href="https://www.tiktok.com/@tropinord" label="TikTok">
+              <SocialIconLink
+                href="https://www.tiktok.com/@tropinord"
+                label={socialLabel("tiktok", "TikTok")}
+              >
                 <TikTokIcon className="h-5 w-5" />
               </SocialIconLink>
 
               <SocialIconLink
                 href="https://www.instagram.com/tropinord/"
-                label="Instagram"
+                label={socialLabel("instagram", "Instagram")}
               >
                 <Instagram className="h-5 w-5" />
               </SocialIconLink>
             </div>
+
+            {/* ✅ Translatable B2B button */}
+            <Link
+              to={path("b2b")}
+              className="inline-flex items-center justify-center rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 transition md:self-end"
+            >
+              {t("footer:b2bButton", {
+                defaultValue: `${t("common:b2bCta", { defaultValue: "B2B / Wholesale" })} →`,
+              })}
+            </Link>
 
             <div className="flex flex-col gap-2 text-sm md:items-end">
               <Link

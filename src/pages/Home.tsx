@@ -257,6 +257,28 @@ export default function Home() {
 
       <div className="tn-nature-sep h-8 mx-8 rounded-full" />
 
+      {/* ================= B2B / WHOLESALE ================= */}
+      <section className="px-4 md:px-8 fade-in opacity-0 translate-y-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="rounded-2xl border bg-background p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="text-2xl font-bold">B2B / Reseller</h3>
+              <p className="text-muted-foreground mt-1 max-w-2xl">
+                Cafés, salons & wellness shops: calculate margins, cups per
+                100g/1kg, and plan bulk buying—automated.
+              </p>
+            </div>
+
+            <Link
+              to={path("b2b")}
+              className="inline-flex items-center rounded-lg bg-emerald-600 text-white px-5 py-3 text-sm font-medium hover:bg-emerald-700 transition"
+            >
+              Open B2B portal →
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ================= OIL SECTION ================= */}
       <section className="px-4 md:px-8 fade-in opacity-0 translate-y-6">
         <div className="max-w-6xl mx-auto space-y-10">

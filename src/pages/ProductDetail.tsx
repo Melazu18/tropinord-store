@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ShoppingBag } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Building2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 
@@ -17,6 +17,7 @@ import { Header } from "@/components/Header";
 import { PageShell } from "@/components/PageShell";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/ProductCard";
 import { AddToCartButton } from "@/components/AddToCartButton";
 
@@ -120,6 +121,7 @@ export default function ProductDetail() {
   const isTea = isTeaCategory(safeCategory);
 
   const explorePath = useMemo(() => getLocalizedPath("explore", lang), [lang]);
+  const b2bPath = useMemo(() => getLocalizedPath("b2b", lang), [lang]);
 
   const onBack = () => {
     if (window.history.length > 1) navigate(-1);
@@ -201,14 +203,40 @@ export default function ProductDetail() {
   }, [isTea, currentSlug, teaInCart, honeyInCart, honey, cart]);
 
   const ritualBadges = useMemo(() => {
-    if (safeCategory === "TEA")
-      return ["Ritual Friendly", "Pairs with Honey", "Slow Brew"];
-    if (safeCategory === "OIL")
-      return ["Heritage Use", "Multi-Purpose", "Small Batch"];
-    if (safeCategory === "SUPERFOOD")
-      return ["Daily Ritual", "Minimal Processing", "Traditional Ingredient"];
+    const cat = String(safeCategory).toUpperCase();
+
+    if (cat === "TEA") {
+      // ✅ keys already exist in your resources
+      return [
+        t("catalog:ritualFriendly", { defaultValue: "Ritual Friendly" }),
+        t("catalog:pairsWithHoney", { defaultValue: "Pairs with Honey" }),
+        t("catalog:slowBrew", { defaultValue: "Slow Brew" }),
+      ];
+    }
+
+    if (cat === "OIL") {
+      // ✅ add keys if you want perfect translations; safe defaults included
+      return [
+        t("catalog:badgeHeritageUse", { defaultValue: "Heritage Use" }),
+        t("catalog:badgeMultiPurpose", { defaultValue: "Multi-Purpose" }),
+        t("catalog:badgeSmallBatch", { defaultValue: "Small Batch" }),
+      ];
+    }
+
+    if (cat === "SUPERFOOD") {
+      return [
+        t("catalog:badgeDailyRitual", { defaultValue: "Daily Ritual" }),
+        t("catalog:badgeMinimalProcessing", {
+          defaultValue: "Minimal Processing",
+        }),
+        t("catalog:badgeTraditionalIngredient", {
+          defaultValue: "Traditional Ingredient",
+        }),
+      ];
+    }
+
     return [];
-  }, [safeCategory]);
+  }, [safeCategory, t]);
 
   const fallbackTitle =
     (product as any)?.title ??
@@ -434,7 +462,20 @@ export default function ProductDetail() {
                 </div>
               ) : null}
 
-              <div className="mt-auto">
+              {/* ✅ Add B2B button without changing existing functionality */}
+              <div className="mt-auto space-y-3">
+                {isTea && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate(b2bPath)}
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    {t("common:b2bCta", { defaultValue: "B2B / Wholesale" })}
+                  </Button>
+                )}
+
                 <AddToCartButton
                   product={product as any}
                   fullWidth
@@ -443,6 +484,15 @@ export default function ProductDetail() {
                     defaultValue: "Coming soon",
                   })}
                 />
+
+                {isTea && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("common:b2bHint", {
+                      defaultValue:
+                        "Buying for a café, spa or shop? Request wholesale pricing.",
+                    })}
+                  </p>
+                )}
               </div>
             </div>
           </div>

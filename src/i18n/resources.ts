@@ -19,6 +19,7 @@ export const supportedLanguages: Array<{
 // Namespaces used across the app
 export const NAMESPACES = [
   "common",
+  "currencies",
   "nav",
   "footer",
   "newsletter",
@@ -56,6 +57,8 @@ export const resources = {
       includesFreeTeaBagsBody:
         "Every tea order includes a pack of 10 reusable organic tea bags.",
       teaBagsLabel: "Reusable organic tea bags (10-pack)",
+      b2bCta: "B2B / Wholesale",
+      b2bHint: "Buying for a shop or business? Request wholesale pricing.",
     },
     currencies: {
       SEK: "Swedish krona (SEK)",
@@ -430,6 +433,12 @@ export const resources = {
       filterByCategory: "Filter by Category",
       loadFailed: "Failed to load products.",
       showingCount: "Showing {{count}} products",
+      badgeHeritageUse: "Heritage Use",
+      badgeMultiPurpose: "Multi-Purpose",
+      badgeSmallBatch: "Small Batch",
+      badgeDailyRitual: "Daily Ritual",
+      badgeMinimalProcessing: "Minimal Processing",
+      badgeTraditionalIngredient: "Traditional Ingredient",
 
       // Product details page
       productDetailsTitle: "Product details",
@@ -484,6 +493,11 @@ export const resources = {
         superfoods: "Superfoods",
         others: "Others",
       },
+
+      // NEW: used by ProductDetail reviews section
+      reviewsTitle: "Customer reviews",
+      reviewsSubtitle: "Ratings and experiences from customers.",
+      showingLatestReviews: "Showing the latest {{count}} reviews.",
     },
   },
 
@@ -503,6 +517,9 @@ export const resources = {
       includesFreeTeaBagsBody:
         "Varje te-beställning inkluderar ett paket med 10 återanvändbara ekologiska tepåsar.",
       teaBagsLabel: "Återanvändbara ekologiska tepåsar (10-pack)",
+      b2bCta: "B2B / Partihandel",
+      b2bHint:
+        "Handlar du för en butik eller verksamhet? Begär grossistpriser.",
     },
     currencies: {
       SEK: "Svensk krona (SEK)",
@@ -873,6 +890,12 @@ export const resources = {
       filterByCategory: "Filtrera efter kategori",
       loadFailed: "Misslyckades att ladda produkter.",
       showingCount: "Visar {{count}} produkter",
+      badgeHeritageUse: "Traditionell användning",
+      badgeMultiPurpose: "Mångsidig",
+      badgeSmallBatch: "Små batcher",
+      badgeDailyRitual: "Daglig ritual",
+      badgeMinimalProcessing: "Minimalt bearbetat",
+      badgeTraditionalIngredient: "Traditionell ingrediens",
 
       productDetailsTitle: "Produktdetaljer",
       productDetailsSubtitle: "Produktdetaljer och köpalternativ.",
@@ -920,6 +943,11 @@ export const resources = {
         superfoods: "Superfoods",
         others: "Övrigt",
       },
+
+      // NEW: used by ProductDetail reviews section
+      reviewsTitle: "Kundrecensioner",
+      reviewsSubtitle: "Betyg och upplevelser från kunder.",
+      showingLatestReviews: "Visar de senaste {{count}} recensionerna.",
     },
   },
 
@@ -939,6 +967,8 @@ export const resources = {
       includesFreeTeaBagsBody:
         "تتضمن كل طلب شاي حزمة من 10 مساحات شاي قابلة لإعادة الاستخدام.",
       teaBagsLabel: "مساحات شاي قابلة لإعادة الاستخدام (حزمة من 10)",
+      b2bCta: "B2B / الجملة",
+      b2bHint: "تشتري لمتجر أو شركة؟ اطلب أسعار الجملة.",
     },
     currencies: {
       SEK: "كرونة سويدية (SEK)",
@@ -1290,6 +1320,12 @@ export const resources = {
       filterByCategory: "تصفية حسب الفئة",
       loadFailed: "فشل في تحميل المنتجات.",
       showingCount: "عرض {{count}} منتج",
+      badgeHeritageUse: "استخدام تراثي",
+      badgeMultiPurpose: "متعدد الأغراض",
+      badgeSmallBatch: "دفعة صغيرة",
+      badgeDailyRitual: "طقس يومي",
+      badgeMinimalProcessing: "معالجة بسيطة",
+      badgeTraditionalIngredient: "مكون تقليدي",
 
       productDetailsTitle: "تفاصيل المنتج",
       productDetailsSubtitle: "تفاصيل المنتج وخيارات الشراء.",
@@ -1336,6 +1372,11 @@ export const resources = {
         superfoods: "سوبرفود",
         others: "أخرى",
       },
+
+      // NEW: used by ProductDetail reviews section
+      reviewsTitle: "مراجعات العملاء",
+      reviewsSubtitle: "التقييمات وتجارب العملاء.",
+      showingLatestReviews: "عرض أحدث {{count}} مراجعات.",
     },
   },
 
@@ -1355,6 +1396,9 @@ export const resources = {
       includesFreeTeaBagsBody:
         "Chaque commande de thé inclut un paquet de 10 infuseurs à thé réutilisables.",
       teaBagsLabel: "Infuseurs à thé réutilisables (paquet de 10)",
+      b2bCta: "B2B / Gros",
+      b2bHint:
+        "Vous achetez pour un magasin ou une entreprise ? Demandez nos tarifs de gros.",
     },
     currencies: {
       SEK: "Couronne suédoise (SEK)",
@@ -1721,6 +1765,12 @@ export const resources = {
       filterByCategory: "Filtrer par catégorie",
       loadFailed: "Échec du chargement des produits.",
       showingCount: "{{count}} produits affichés",
+      badgeHeritageUse: "Usage traditionnel",
+      badgeMultiPurpose: "Polyvalent",
+      badgeSmallBatch: "Petite série",
+      badgeDailyRitual: "Rituel quotidien",
+      badgeMinimalProcessing: "Transformation minimale",
+      badgeTraditionalIngredient: "Ingrédient traditionnel",
 
       productDetailsTitle: "Détails du produit",
       productDetailsSubtitle: "Détails du produit et options d'achat.",
@@ -1769,6 +1819,11 @@ export const resources = {
         superfoods: "Superaliments",
         others: "Autre",
       },
+
+      // NEW: used by ProductDetail reviews section
+      reviewsTitle: "Avis clients",
+      reviewsSubtitle: "Notes et expériences des clients.",
+      showingLatestReviews: "Affichage des {{count}} avis les plus récents.",
     },
   },
 
@@ -1788,6 +1843,9 @@ export const resources = {
       includesFreeTeaBagsBody:
         "Jede Teebestellung enthält ein Paket mit 10 wiederverwendbaren Teebeuteln.",
       teaBagsLabel: "Wiederverwendbare Teebeutel (Paket mit 10)",
+      b2bCta: "B2B / Großhandel",
+      b2bHint:
+        "Kaufen Sie für ein Geschäft oder Unternehmen? Fordern Sie Großhandelspreise an.",
     },
     currencies: {
       SEK: "Schwedische Krone (SEK)",
@@ -2152,6 +2210,12 @@ export const resources = {
       filterByCategory: "Nach Kategorie filtern",
       loadFailed: "Produkte konnten nicht geladen werden.",
       showingCount: "{{count}} Produkte werden angezeigt",
+      badgeHeritageUse: "Traditionelle Verwendung",
+      badgeMultiPurpose: "Mehrzweck",
+      badgeSmallBatch: "Kleine Charge",
+      badgeDailyRitual: "Tägliches Ritual",
+      badgeMinimalProcessing: "Minimal verarbeitet",
+      badgeTraditionalIngredient: "Traditionelle Zutat",
 
       productDetailsTitle: "Produktdetails",
       productDetailsSubtitle: "Produktdetails und Kaufoptionen.",
@@ -2200,6 +2264,11 @@ export const resources = {
         superfoods: "Superfoods",
         others: "Sonstiges",
       },
+
+      // NEW: used by ProductDetail reviews section
+      reviewsTitle: "Kundenbewertungen",
+      reviewsSubtitle: "Bewertungen und Erfahrungen von Kunden.",
+      showingLatestReviews: "Zeigt die neuesten {{count}} Bewertungen.",
     },
   },
 
@@ -2220,6 +2289,8 @@ export const resources = {
       includesFreeTeaBagsBody:
         "Kila agizo la chai linajumuisha pakiti ya mifuko 10 ya chai inayoweza kutumika tena.",
       teaBagsLabel: "Mifuko ya chai inayoweza kutumika tena (pakiti ya 10)",
+      b2bCta: "B2B / Jumla",
+      b2bHint: "Unanunulia duka au biashara? Omba bei za jumla.",
     },
     currencies: {
       SEK: "Krona ya Uswidi (SEK)",
@@ -2585,6 +2656,12 @@ export const resources = {
       filterByCategory: "Chuja kwa Kategoria",
       loadFailed: "Imeshindikana kupakia bidhaa.",
       showingCount: "Inaonyesha bidhaa {{count}}",
+      badgeHeritageUse: "Matumizi ya kimila",
+      badgeMultiPurpose: "Matumizi mbalimbali",
+      badgeSmallBatch: "Kundi dogo",
+      badgeDailyRitual: "Desturi ya kila siku",
+      badgeMinimalProcessing: "Usindikaji mdogo",
+      badgeTraditionalIngredient: "Kingo cha jadi",
 
       productDetailsTitle: "Maelezo ya bidhaa",
       productDetailsSubtitle: "Maelezo ya bidhaa na chaguo za ununuzi.",
@@ -2632,6 +2709,11 @@ export const resources = {
         superfoods: "Superfoods",
         others: "Nyingine",
       },
+
+      // NEW: used by ProductDetail reviews section
+      reviewsTitle: "Maoni ya wateja",
+      reviewsSubtitle: "Ukadiriaji na uzoefu kutoka kwa wateja.",
+      showingLatestReviews: "Inaonyesha maoni {{count}} ya hivi karibuni.",
     },
   },
 } as const;
