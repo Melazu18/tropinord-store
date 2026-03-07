@@ -33,6 +33,12 @@ interface ProductSearchProps {
   clearLabel?: string;
 }
 
+function normalizeCategory(category?: string | null) {
+  return String(category || "OTHERS")
+    .trim()
+    .toUpperCase();
+}
+
 export function ProductSearch({
   value,
   onChange,
@@ -46,8 +52,7 @@ export function ProductSearch({
   const [isFocused, setIsFocused] = useState(false);
   const navigate = useNavigate();
 
-  // Only fetch when suggestions are enabled
-  const { data: allProducts } = useProducts(enableSuggestions ? "ALL" : "ALL");
+  const { data: allProducts } = useProducts("ALL");
 
   const suggestions = useMemo(() => {
     if (!enableSuggestions) return [];
@@ -59,9 +64,9 @@ export function ProductSearch({
     return list
       .filter((p) => {
         const title = (p.title || "").toLowerCase();
-        const desc = (p.description || "").toLowerCase();
-        const cat = (p.category || "").toLowerCase();
-        return title.includes(q) || desc.includes(q) || cat.includes(q);
+        const cat = normalizeCategory(p.category).toLowerCase().replace(/_/g, " ");
+        // Match against title and category only, not description
+        return title.includes(q) || cat.includes(q);
       })
       .slice(0, maxSuggestions);
   }, [allProducts, enableSuggestions, maxSuggestions, value]);
@@ -76,20 +81,26 @@ export function ProductSearch({
     clearLabel ?? t("catalog:clearSearch", { defaultValue: "Clear search" });
 
   const categoryLabel = (category?: string | null) => {
-    const c = (category ?? "").toUpperCase();
-    if (!c) return "";
+    const c = normalizeCategory(category);
+
     const key =
       c === "TEA"
         ? "catalog:categories.tea"
-        : c === "OIL"
-          ? "catalog:categories.oils"
-          : c === "SUPERFOOD"
-            ? "catalog:categories.superfoods"
-            : c === "OTHERS"
-              ? "catalog:categories.other"
-              : null;
+        : c === "TEA_BAGS"
+          ? "catalog:categories.tea_bags"
+          : c === "BALM"
+            ? "catalog:categories.balm"
+            : c === "OIL"
+              ? "catalog:categories.oil"
+              : c === "SUPERFOOD"
+                ? "catalog:categories.superfood"
+                : c === "OTHERS"
+                  ? "catalog:categories.others"
+                  : null;
 
-    return key ? t(key, { defaultValue: category ?? "" }) : (category ?? "");
+    return key
+      ? t(key, { defaultValue: c.replace(/_/g, " ") })
+      : c.replace(/_/g, " ");
   };
 
   return (
