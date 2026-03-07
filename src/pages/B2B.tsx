@@ -1,5 +1,5 @@
 // src/pages/B2B.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -35,10 +35,10 @@ type PriceItem = {
   id: string;
   name: string;
 
-  // ✅ B2B: show only wholesale (no retail)
-  // User corrected: wholesale is EX VAT
-  wholesaleSekExVat?: number; // per unit (assumed 100g) EX VAT
-  wholesaleSekPerKgExVat?: number; // derived or provided EX VAT
+  // Public B2B pricing
+  wholesaleSekExVat?: number; // legacy / optional display
+  wholesaleSekPerKgExVat?: number; // actual wholesale bag price (1 kg bag)
+  retailSekInclVat?: number; // recommended retail / sell price incl VAT (100g)
 
   notes?: string;
 };
@@ -78,10 +78,21 @@ export default function B2B() {
 
   const path = (key: string) => getLocalizedPath(key, lang);
 
-  // UI language helper (keeps existing functionality; provides SV/EN without requiring new namespaces)
+  // UI language helper
   const uiLang = isSwedish(lang) ? "sv" : "en";
   const ui = (svText: string, enText: string) =>
     uiLang === "sv" ? svText : enText;
+
+  const vatRate = 0.12;
+
+  // Product images from public/images
+  const productImages: Record<string, string> = {
+    "quiet-morning": "/images/BEG.png",
+    "warm-resolve": "/images/WomansPower.png",
+    "soft-horizon": "/images/WellnessT.png",
+    "gentle-garden": "/images/RelaxYourself01.png",
+    "sunset-care": "/images/NightCare.png",
+  };
 
   // -----------------------------
   // Tea specs (SV/EN) — TropiNord only
@@ -240,7 +251,6 @@ export default function B2B() {
         },
       },
 
-      // ✅ NEW (not yet available)
       "sunset-care": {
         id: "sunset-care",
         name: "SUNSET CARE",
@@ -284,8 +294,8 @@ export default function B2B() {
   );
 
   // -----------------------------
-  // TropiNord items (Wholesale only — EX VAT)
-  // Assuming 100g unit => per-kg = ×10
+  // TropiNord items
+  // Wholesale is sold in 1kg bags
   // -----------------------------
   const items: PriceItem[] = useMemo(
     () => [
@@ -294,30 +304,33 @@ export default function B2B() {
         name: "Quiet Morning",
         wholesaleSekExVat: 119,
         wholesaleSekPerKgExVat: 1190,
+        retailSekInclVat: 189,
       },
       {
         id: "warm-resolve",
         name: "Warm Resolve",
         wholesaleSekExVat: 115,
         wholesaleSekPerKgExVat: 1150,
+        retailSekInclVat: 179,
       },
       {
         id: "soft-horizon",
         name: "Soft Horizon",
         wholesaleSekExVat: 95,
         wholesaleSekPerKgExVat: 950,
+        retailSekInclVat: 149,
       },
       {
         id: "gentle-garden",
         name: "Gentle Garden",
         wholesaleSekExVat: 95,
         wholesaleSekPerKgExVat: 950,
+        retailSekInclVat: 149,
       },
-
-      // coming soon
       {
         id: "sunset-care",
         name: "SUNSET CARE",
+        retailSekInclVat: 0,
         notes: ui("Kommer snart", "Coming soon"),
       },
     ],
@@ -336,9 +349,12 @@ export default function B2B() {
 
   // -----------------------------
   // Reselling profit calculator
+  // Public-safe:
+  // purchase price = wholesale price per 1kg bag
+  // selling price = resale price per 1kg bag incl VAT
   // -----------------------------
-  const [sellPriceSek, setSellPriceSek] = useState<number>(189);
-  const [costSek, setCostSek] = useState<number>(0);
+  const [sellPriceSek, setSellPriceSek] = useState<number>(1890);
+  const [purchasePriceSek, setPurchasePriceSek] = useState<number>(0);
   const [quantity, setQuantity] = useState<number>(12);
 
   const [paymentFeePct, setPaymentFeePct] = useState<number>(2.9);
@@ -355,6 +371,7 @@ export default function B2B() {
 
   // -----------------------------
   // Bulk cost → per cup
+  // Public-safe: uses wholesale / kg
   // -----------------------------
   const [bulkCostSekPerKg, setBulkCostSekPerKg] = useState<number>(1190);
   const costPerGram = bulkCostSekPerKg / 1000;
@@ -382,36 +399,59 @@ export default function B2B() {
   function applySelected(item?: PriceItem) {
     if (!item) return;
 
-    // Prefill COST (wholesale per unit) and SEK/kg if available
-    if (typeof item.wholesaleSekExVat === "number")
-      setCostSek(item.wholesaleSekExVat);
-    if (typeof item.wholesaleSekPerKgExVat === "number")
+    if (
+      typeof item.retailSekInclVat === "number" &&
+      item.retailSekInclVat > 0
+    ) {
+      setSellPriceSek(item.retailSekInclVat * 10);
+    }
+
+    if (typeof item.wholesaleSekPerKgExVat === "number") {
+      setPurchasePriceSek(item.wholesaleSekPerKgExVat);
       setBulkCostSekPerKg(item.wholesaleSekPerKgExVat);
+    } else {
+      setPurchasePriceSek(0);
+      setBulkCostSekPerKg(0);
+    }
   }
 
-  // Profit outputs
-  const paymentFee = (sellPriceSek * clamp(paymentFeePct, 0, 100)) / 100;
-  const totalCostPerUnit =
-    costSek + shippingPerUnitSek + otherOverheadPerUnitSek + paymentFee;
+  useEffect(() => {
+    const current = items.find((x) => x.id === selectedId);
+    applySelected(current);
+  }, [selectedId, items]);
 
-  const grossProfitPerUnit = sellPriceSek - totalCostPerUnit;
+  // Profit outputs
+  const sellPriceExVat = sellPriceSek / (1 + vatRate);
+  const paymentFee = (sellPriceSek * clamp(paymentFeePct, 0, 100)) / 100;
+
+  const totalCostPerUnit =
+    purchasePriceSek +
+    shippingPerUnitSek +
+    otherOverheadPerUnitSek +
+    paymentFee;
+
+  const grossProfitPerUnit = sellPriceExVat - totalCostPerUnit;
   const grossMarginPct =
-    sellPriceSek > 0 ? (grossProfitPerUnit / sellPriceSek) * 100 : 0;
+    sellPriceExVat > 0 ? (grossProfitPerUnit / sellPriceExVat) * 100 : 0;
 
   const totalProfit = grossProfitPerUnit * quantity;
-  const totalRevenue = sellPriceSek * quantity;
+  const totalRevenue = sellPriceExVat * quantity;
   const totalCost = totalCostPerUnit * quantity;
 
-  const breakEvenPrice = costSek + shippingPerUnitSek + otherOverheadPerUnitSek;
-  const feeRate = clamp(paymentFeePct, 0, 100) / 100;
-  const breakEvenInclFee =
-    1 - feeRate > 0 ? breakEvenPrice / (1 - feeRate) : Infinity;
+  const breakEvenPriceExVat =
+    purchasePriceSek + shippingPerUnitSek + otherOverheadPerUnitSek;
 
-  // Localized spec rendering (sv vs en)
+  const feeRate = clamp(paymentFeePct, 0, 100) / 100;
+  const breakEvenInclFeeExVat =
+    1 - feeRate > 0 ? breakEvenPriceExVat / (1 - feeRate) : Infinity;
+
+  const breakEvenPriceInclVat = breakEvenPriceExVat * (1 + vatRate);
+  const breakEvenInclFeeInclVat = breakEvenInclFeeExVat * (1 + vatRate);
+
+  // Localized spec rendering
   const specText = (obj?: { sv: string; en: string }) =>
     obj ? obj[uiLang] : "";
 
-  // ✅ Dark-mode safe inputs/selects (fixes select text invisibility)
   const fieldClass =
     "w-full rounded-lg border px-3 py-2 bg-background text-foreground";
 
@@ -451,7 +491,7 @@ export default function B2B() {
         </div>
       </div>
 
-      {/* Reference prices (Wholesale only) */}
+      {/* Reference prices */}
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">
           {ui("TropiNord-teer", "TropiNord teas")}
@@ -459,8 +499,8 @@ export default function B2B() {
 
         <p className="text-sm text-muted-foreground">
           {ui(
-            "Välj ett te för att fylla i grossistkostnad (per enhet + SEK/kg) och se ingredienser + bryggning + ursprung + förvaring.",
-            "Select a tea to prefill wholesale cost (per unit + SEK/kg) and view full ingredients + brewing + origin + storage.",
+            "Välj ett te för att fylla i grossistpris per kg-påse och se ingredienser + bryggning + ursprung + förvaring.",
+            "Select a tea to prefill wholesale price per kg bag and view full ingredients + brewing + origin + storage.",
           )}
           <span className="block mt-1">
             {ui("Grossistpriser visas ", "Wholesale prices shown are ")}
@@ -477,16 +517,23 @@ export default function B2B() {
             return (
               <button
                 key={x.id}
-                onClick={() => {
-                  setSelectedId(x.id);
-                  applySelected(x);
-                }}
+                onClick={() => setSelectedId(x.id)}
                 className={[
                   "text-left rounded-xl border p-4 transition",
                   "hover:bg-accent/40",
                   isSelected ? "ring-2 ring-emerald-600" : "",
                 ].join(" ")}
               >
+                {productImages[x.id] ? (
+                  <div className="mb-3 overflow-hidden rounded-xl border bg-white dark:bg-neutral-900">
+                    <img
+                      src={productImages[x.id]}
+                      alt={x.name}
+                      className="h-44 w-full object-contain"
+                    />
+                  </div>
+                ) : null}
+
                 <div className="flex items-start justify-between gap-3">
                   <div className="font-semibold">{x.name}</div>
                   {isComingSoon ? (
@@ -497,34 +544,34 @@ export default function B2B() {
                 </div>
 
                 <div className="text-sm text-muted-foreground mt-1 space-y-1">
-                  {typeof x.wholesaleSekExVat === "number" ? (
-                    <div>
-                      {ui("Grossist (exkl. moms): ", "Wholesale (ex VAT): ")}
-                      {formatSek(x.wholesaleSekExVat)}
-                    </div>
-                  ) : (
-                    <div>
-                      {ui("Grossist (exkl. moms): ", "Wholesale (ex VAT): ")}—
-                    </div>
-                  )}
-
                   {typeof x.wholesaleSekPerKgExVat === "number" ? (
                     <div>
                       {ui(
-                        "Grossist / kg (exkl. moms): ",
-                        "Wholesale / kg (ex VAT): ",
+                        "Grossist / kg-påse (exkl. moms): ",
+                        "Wholesale / kg bag (ex VAT): ",
                       )}
                       {formatSek(x.wholesaleSekPerKgExVat)}
                     </div>
                   ) : (
                     <div>
                       {ui(
-                        "Grossist / kg (exkl. moms): ",
-                        "Wholesale / kg (ex VAT): ",
+                        "Grossist / kg-påse (exkl. moms): ",
+                        "Wholesale / kg bag (ex VAT): ",
                       )}
                       —
                     </div>
                   )}
+
+                  {typeof x.retailSekInclVat === "number" &&
+                  x.retailSekInclVat > 0 ? (
+                    <div>
+                      {ui(
+                        "Vägledande prisnivå från 100g-pris: ",
+                        "Guide price level from 100g price: ",
+                      )}
+                      {formatSek(x.retailSekInclVat)} / 100g
+                    </div>
+                  ) : null}
 
                   {x.notes ? (
                     <div className="text-xs opacity-80">{x.notes}</div>
@@ -540,17 +587,27 @@ export default function B2B() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">
           {ui(
-            "Vinstkalkyl (återförsäljning)",
-            "Net profit calculator (reselling)",
+            "Vinstkalkyl (återförsäljning av 1kg-påsar)",
+            "Net profit calculator (reselling 1kg bags)",
           )}
         </h2>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-2xl border p-5 space-y-4">
+            <div className="rounded-xl bg-accent/20 p-4 text-sm text-muted-foreground">
+              {ui(
+                "Denna kalkyl utgår från att 1 enhet = 1 kg-påse. Antal visar alltså hur många 1 kg-påsar som säljs.",
+                "This calculator assumes 1 unit = 1 kg bag. Quantity therefore means how many 1 kg bags are sold.",
+              )}
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1">
                 <div className="text-sm font-medium">
-                  {ui("Säljpris (SEK)", "Selling price (SEK)")}
+                  {ui(
+                    "Försäljningspris (SEK inkl. moms / 1kg-påse)",
+                    "Selling price (SEK incl VAT / 1kg bag)",
+                  )}
                 </div>
                 <input
                   type="number"
@@ -564,14 +621,14 @@ export default function B2B() {
               <label className="space-y-1">
                 <div className="text-sm font-medium">
                   {ui(
-                    "Din inköpskostnad (SEK / enhet) (exkl. moms)",
-                    "Your cost price (SEK / unit) (ex VAT)",
+                    "Inköpspris från TropiNord (SEK / 1kg-påse, exkl. moms)",
+                    "Purchase price from TropiNord (SEK / 1kg bag, ex VAT)",
                   )}
                 </div>
                 <input
                   type="number"
-                  value={costSek}
-                  onChange={(e) => setCostSek(Number(e.target.value))}
+                  value={purchasePriceSek}
+                  onChange={(e) => setPurchasePriceSek(Number(e.target.value))}
                   className={fieldClass}
                   min={0}
                 />
@@ -579,7 +636,7 @@ export default function B2B() {
 
               <label className="space-y-1">
                 <div className="text-sm font-medium">
-                  {ui("Antal", "Quantity")}
+                  {ui("Antal 1kg-påsar", "Quantity of 1kg bags")}
                 </div>
                 <input
                   type="number"
@@ -607,8 +664,8 @@ export default function B2B() {
               <label className="space-y-1">
                 <div className="text-sm font-medium">
                   {ui(
-                    "Fraktkostnad (SEK / enhet)",
-                    "Shipping cost (SEK / unit)",
+                    "Fraktkostnad (SEK / 1kg-påse)",
+                    "Shipping cost (SEK / 1kg bag)",
                   )}
                 </div>
                 <input
@@ -625,8 +682,8 @@ export default function B2B() {
               <label className="space-y-1">
                 <div className="text-sm font-medium">
                   {ui(
-                    "Övriga omkostnader (SEK / enhet)",
-                    "Other overhead (SEK / unit)",
+                    "Övriga omkostnader (SEK / 1kg-påse)",
+                    "Other overhead (SEK / 1kg bag)",
                   )}
                 </div>
                 <input
@@ -643,8 +700,8 @@ export default function B2B() {
 
             <div className="text-xs text-muted-foreground">
               {ui(
-                "Tips för caféer: använd café-kalkylen nedan för vinst per kopp/kanna/dag. För bulk-kostnad, använd SEK/kg-kalkylen.",
-                "Tip for cafés: use the café calculator below to estimate profit per cup/pot/day. For bulk tea costing, use the SEK/kg calculator below.",
+                "Tips för caféer: använd café-kalkylen nedan för vinst per kopp/kanna/dag. För te-kostnad per kopp används grossistpris per kg.",
+                "Tip for cafés: use the café calculator below to estimate profit per cup/pot/day. Tea cost per cup uses wholesale price per kg.",
               )}
             </div>
           </div>
@@ -653,7 +710,7 @@ export default function B2B() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl bg-accent/30 p-4">
                 <div className="text-xs text-muted-foreground">
-                  {ui("Vinst / enhet", "Profit / unit")}
+                  {ui("Vinst / 1kg-påse", "Profit / 1kg bag")}
                 </div>
                 <div className="text-2xl font-bold">
                   {formatSek(grossProfitPerUnit)}
@@ -672,14 +729,14 @@ export default function B2B() {
                   {formatSek(totalProfit)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {ui("Antal: ", "Qty: ")}
+                  {ui("Antal kg-påsar: ", "Qty kg bags: ")}
                   {formatNumber(quantity, 0)}
                 </div>
               </div>
 
               <div className="rounded-xl border p-4">
                 <div className="text-xs text-muted-foreground">
-                  {ui("Total omsättning", "Total revenue")}
+                  {ui("Nettoomsättning (exkl. moms)", "Net sales (ex VAT)")}
                 </div>
                 <div className="text-lg font-semibold">
                   {formatSek(totalRevenue)}
@@ -704,14 +761,20 @@ export default function B2B() {
                 )}
               </div>
               <div className="text-sm text-muted-foreground">
-                {ui("Före betalavgift: ", "Before payment fee: ")}
+                {ui(
+                  "Före betalavgift (inkl. moms / 1kg-påse): ",
+                  "Before payment fee (incl VAT / 1kg bag): ",
+                )}
                 <span className="font-semibold text-foreground">
-                  {formatSek(breakEvenPrice)}
+                  {formatSek(breakEvenPriceInclVat)}
                 </span>
                 <br />
-                {ui("Inkl. betalavgift: ", "Including payment fee: ")}
+                {ui(
+                  "Inkl. betalavgift (inkl. moms / 1kg-påse): ",
+                  "Including payment fee (incl VAT / 1kg bag): ",
+                )}
                 <span className="font-semibold text-foreground">
-                  {formatSek(breakEvenInclFee)}
+                  {formatSek(breakEvenInclFeeInclVat)}
                 </span>
               </div>
             </div>
@@ -786,8 +849,8 @@ export default function B2B() {
             <label className="space-y-1 block">
               <div className="text-sm font-medium">
                 {ui(
-                  "Kostnad (SEK / kg) (exkl. moms)",
-                  "Cost (SEK / kg) (ex VAT)",
+                  "Grossistpris (SEK / kg) (exkl. moms)",
+                  "Wholesale price (SEK / kg) (ex VAT)",
                 )}
               </div>
               <input
@@ -799,8 +862,8 @@ export default function B2B() {
               />
               <div className="text-xs text-muted-foreground">
                 {ui(
-                  "Ange din förhandlade grossistkostnad per kg (exkl. moms).",
-                  "Enter your negotiated wholesale cost per kg (ex VAT).",
+                  "Ange grossistpris per kg (exkl. moms).",
+                  "Enter wholesale price per kg (ex VAT).",
                 )}
               </div>
             </label>
@@ -998,6 +1061,16 @@ export default function B2B() {
           </h2>
 
           <div className="rounded-2xl border p-5 space-y-4">
+            {productImages[selectedId] ? (
+              <div className="overflow-hidden rounded-2xl border bg-white dark:bg-neutral-900">
+                <img
+                  src={productImages[selectedId]}
+                  alt={spec.name}
+                  className="mx-auto h-72 w-full object-contain"
+                />
+              </div>
+            ) : null}
+
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
               <div>
                 <div className="text-sm text-muted-foreground">

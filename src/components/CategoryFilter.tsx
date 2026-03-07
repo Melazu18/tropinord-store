@@ -5,7 +5,15 @@
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 
-const categories = ["ALL", "TEA", "OIL", "SUPERFOOD", "OTHER"] as const;
+const categories = [
+  "ALL",
+  "TEA",
+  "TEA_BAGS",
+  "BALM",
+  "OIL",
+  "SUPERFOOD",
+  "OTHERS",
+] as const;
 
 interface CategoryFilterProps {
   selected: string;
@@ -13,7 +21,7 @@ interface CategoryFilterProps {
 
   /**
    * Optional override labels (recommended for pages to control wording).
-   * Keys: ALL, TEA, OIL, SUPERFOOD, OTHER
+   * Keys: ALL, TEA, TEA_BAGS, BALM, OIL, SUPERFOOD, OTHERS
    */
   labels?: Partial<Record<(typeof categories)[number], string>>;
 }
@@ -21,9 +29,11 @@ interface CategoryFilterProps {
 const defaultEnglishLabels: Record<(typeof categories)[number], string> = {
   ALL: "All Products",
   TEA: "Tea",
+  TEA_BAGS: "Tea Bags",
+  BALM: "Balm",
   OIL: "Oils",
   SUPERFOOD: "Superfoods",
-  OTHER: "Other",
+  OTHERS: "Others",
 };
 
 export function CategoryFilter({
@@ -34,21 +44,23 @@ export function CategoryFilter({
   const { t } = useTranslation(["catalog"]);
 
   const labelFor = (category: (typeof categories)[number]) => {
-    // 1) explicit override from props
     const fromProps = labels?.[category];
     if (fromProps) return fromProps;
 
-    // 2) i18n from catalog namespace
     const key =
       category === "ALL"
         ? "catalog:categories.all"
         : category === "TEA"
           ? "catalog:categories.tea"
-          : category === "OIL"
-            ? "catalog:categories.oils"
-            : category === "SUPERFOOD"
-              ? "catalog:categories.superfoods"
-              : "catalog:categories.other";
+          : category === "TEA_BAGS"
+            ? "catalog:categories.tea_bags"
+            : category === "BALM"
+              ? "catalog:categories.balm"
+              : category === "OIL"
+                ? "catalog:categories.oil"
+                : category === "SUPERFOOD"
+                  ? "catalog:categories.superfood"
+                  : "catalog:categories.others";
 
     return t(key, { defaultValue: defaultEnglishLabels[category] });
   };
